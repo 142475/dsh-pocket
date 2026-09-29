@@ -749,6 +749,70 @@ test('公网隧道自动恢复：dispose（进程退出/重启）保留标记，
   await fsp.rm(home, { recursive: true, force: true });
 });
 
+const silentLog = { info() {}, log() {}, warn() {}, error() {} };
+
+test('公网开关持久化：startTunnel 失败也留标记 —— 记的是「开关意图」，不是「上次是否恰好成功」', async () => {
+  const fsp = await import('node:fs/promises');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'dshp-intent-'));
+  const statePath = path.join(home, 'dsh-pocket', 'tunnel-auto.json');
+
+  const internals = {
+    ...stubInternals(),
+    startTunnel: async () => { throw new Error('boot: network not ready'); },
+  };
+  const service = createPocketService({ dshPort: 3080, port: 3081, home, internals, log: silentLog });
+  await service.startProxy();
+
+  await assert.rejects(() => service.startTunnel(), /network not ready/);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.ok((await fsp.readFile(statePath, 'utf8')).includes('"at"'), '开启失败也要记住开关=开（下次启动继续试）');
+
+  // 手动关闭 → 记住「关」
+  service.stopTunnel();
+  let after = null;
+  for (let i = 0; i < 50; i++) {
+    after = await fsp.readFile(statePath, 'utf8').catch(() => null);
+    if (after === null) break;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  assert.equal(after, null, '手动关闭后标记清除');
+
+  await service.dispose();
+  await fsp.rm(home, { recursive: true, force: true });
+});
+
+test('公网隧道自动恢复：首次失败会重试（开机网络未就绪不再需要手动点一次）', async () => {
+  const fsp = await import('node:fs/promises');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'dshp-retry-'));
+  const statePath = path.join(home, 'dsh-pocket', 'tunnel-auto.json');
+  await fsp.mkdir(path.dirname(statePath), { recursive: true });
+  await fsp.writeFile(statePath, JSON.stringify({ at: Date.now() }), 'utf8');
+
+  let calls = 0;
+  const internals = {
+    ...stubInternals(),
+    startTunnel: async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('boot: DNS not ready');
+      return { url: 'https://auto.trycloudflare.com', kill: () => {} };
+    },
+  };
+  const service = createPocketService({ dshPort: 3080, port: 3081, home, internals, log: silentLog });
+  await service.startProxy();
+  await service.restoreTunnelIfNeeded({ attempts: 3, delayMs: 5 });
+
+  assert.equal(calls, 2, '第一次失败后重试成功，不必等用户手点');
+  const st = await service.status();
+  assert.equal(st.tunnelRunning, true, '重试成功后隧道在跑');
+
+  await service.dispose();
+  await fsp.rm(home, { recursive: true, force: true });
+});
+
 test('RPC：局域网密码独立于公网；lanTokenRefresh 刷新并返回新密码（issue #18）', async () => {
   const internals = stubInternals();
   const service = createPocketService({ dshPort: 3080, port: 3081, internals });
