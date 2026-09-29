@@ -79,10 +79,20 @@ auth.token = "<强随机，与插件里填的一致>"
 allowPorts = [{ start = 18000, end = 18100 }]   # 建议：限制可映射端口段
 ```
 
-- Oracle Cloud 要**两处**放行：控制台安全列表 + 实例内 iptables（Oracle Linux 镜像默认 INPUT ACCEPT，
-  但 VCN 安全列表按端口逐条放行 —— 实测 60012 需新增一条）：
-  已用 OCI CLI 在安全列表加 `frp tunnel 60012 (dsh-pocket)`（TCP 60012 / 0.0.0.0/0）
-- frps 用 systemd 常驻：`frps -c /etc/frp/frps.toml`。
+- 放行要**三处**齐备（实测缺任一处都是「连不上」）：
+  1. **VCN 安全列表**：按端口逐条放行，已用 OCI CLI 加
+     `frp tunnel 60012 (dsh-pocket)`（TCP 60012 / 0.0.0.0/0），安全列表
+     `ocid1.securitylist.oc1.phx.aaaaaaaabfsrcth3mjopbw4uogovduze6nswzc2hmfqdjwyhd4ivlkktw6ma`
+  2. **实例内 iptables**：Oracle Linux 镜像默认 `-P INPUT ACCEPT`，无需改
+  3. **frps 容器的端口映射**（最容易漏）：本机 frps 是 docker compose 部署
+     （`/home/opc/sofaware/frps/docker-compose.yml`，镜像 `snowdreamtech/frps:0.71.0-debian`，
+     `restart: unless-stopped`），`remotePort` 只在**容器内**监听 —— compose 的 `ports`
+     必须加 `- "60012:60012"`，再 `docker compose up -d` 重建容器
+     （改前先 `cp -a docker-compose.yml docker-compose.yml.bak.$(date +%Y%m%d_%H%M%S)`；
+     重建只中断数秒，其他 frpc 隧道会自动重连）。
+     实测：只加安全列表时外网连 60012 被拒；补上映射后立刻通。
+- frps 常驻：本机是 docker compose（`restart: unless-stopped`）；裸机部署则是
+  systemd + `frps -c /etc/frp/frps.toml`。
 
 ## 安全边界（改动前必读）
 
