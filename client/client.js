@@ -103,7 +103,7 @@ function redactStatus(s) {
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: "idle" },
-    tunnelConfig: s?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false },
+    tunnelConfig: s?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false, frp: null },
     dshPort: s?.dshPort ?? null
   };
 }
@@ -1915,7 +1915,7 @@ var zh2 = {
   "resetGo": "\u6062\u590D",
   "resetIntro": "\u8BBE\u7F6E\u641E\u51FA\u95EE\u9898\u65F6\u7684\u4E34\u65F6\u515C\u5E95\uFF1A\u6E05\u7A7A\u672C\u673A\u914D\u7F6E\u5E76\u91CD\u8BBE\u968F\u673A\u5BC6\u7801\uFF08DSH \u7684\u4F1A\u8BDD\u3001\u6A21\u578B\u3001\u63D2\u4EF6\u914D\u7F6E\u4E0D\u53D7\u5F71\u54CD\uFF09",
   "resetTitle": "\u26A0\uFE0F \u786E\u8BA4\u6062\u590D\u51FA\u5382\u8BBE\u7F6E\uFF1F",
-  "resetBody": "\u5C06\u6E05\u7A7A\u5E76\u6062\u590D\u9ED8\u8BA4\uFF1A\n\u2460 \u5F00\u5173\uFF1A\u5C40\u57DF\u7F51\u8BBF\u95EE=\u5F00\u3001\u8BBF\u95EE\u5BC6\u7801=\u5F00\u3001\u624B\u673A\u7AEF\u53F3\u8FB9\u680F=\u5F00\u3001\u5C40\u57DF\u7F51\u5730\u5740=\u81EA\u52A8\n\u2461 \u516C\u7F51\uFF1A\u6A21\u5F0F\u56DE\u5230\u968F\u673A\u57DF\u540D\uFF0C\u6E05\u7A7A Tunnel Token \u4E0E\u56FA\u5B9A\u57DF\u540D\uFF0C\u5E76\u5173\u95ED\u6B63\u5728\u8FD0\u884C\u7684\u516C\u7F51\n\u2462 \u5BC6\u7801\uFF1A\u516C\u7F51\u548C\u5C40\u57DF\u7F51\u90FD\u6362\u6210\u65B0\u7684\u968F\u673A 8 \u4F4D\u5BC6\u7801\uFF08\u65E7\u5BC6\u7801\u7ACB\u5373\u4F5C\u5E9F\uFF0C\u624B\u673A\u9700\u91CD\u65B0\u8F93\u5165\uFF09\n\nDSH \u81EA\u8EAB\u7684\u4F1A\u8BDD\u3001\u6A21\u578B\u3001\u63D2\u4EF6\u914D\u7F6E\u4E0D\u53D7\u5F71\u54CD\uFF1B\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002",
+  "resetBody": "\u5C06\u6E05\u7A7A\u5E76\u6062\u590D\u9ED8\u8BA4\uFF1A\n\u2460 \u5F00\u5173\uFF1A\u5C40\u57DF\u7F51\u8BBF\u95EE=\u5F00\u3001\u8BBF\u95EE\u5BC6\u7801=\u5F00\u3001\u624B\u673A\u7AEF\u53F3\u8FB9\u680F=\u5F00\u3001\u5C40\u57DF\u7F51\u5730\u5740=\u81EA\u52A8\n\u2461 \u516C\u7F51\uFF1A\u6A21\u5F0F\u56DE\u5230\u968F\u673A\u57DF\u540D\uFF0C\u6E05\u7A7A Tunnel Token\u3001\u56FA\u5B9A\u57DF\u540D\u4E0E frp \u914D\u7F6E\uFF0C\u5E76\u5173\u95ED\u6B63\u5728\u8FD0\u884C\u7684\u516C\u7F51\n\u2462 \u5BC6\u7801\uFF1A\u516C\u7F51\u548C\u5C40\u57DF\u7F51\u90FD\u6362\u6210\u65B0\u7684\u968F\u673A 8 \u4F4D\u5BC6\u7801\uFF08\u65E7\u5BC6\u7801\u7ACB\u5373\u4F5C\u5E9F\uFF0C\u624B\u673A\u9700\u91CD\u65B0\u8F93\u5165\uFF09\n\nDSH \u81EA\u8EAB\u7684\u4F1A\u8BDD\u3001\u6A21\u578B\u3001\u63D2\u4EF6\u914D\u7F6E\u4E0D\u53D7\u5F71\u54CD\uFF1B\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002",
   "resetConfirm": "\u786E\u8BA4\u6062\u590D",
   "resetDone": "\u2705 \u5DF2\u6062\u590D\u51FA\u5382\u8BBE\u7F6E\uFF1A\u8BBE\u7F6E\u5DF2\u6E05\u7A7A\uFF0C\u5BC6\u7801\u5DF2\u6362\u65B0\uFF08\u624B\u673A\u9700\u91CD\u65B0\u8F93\u5165\uFF09",
   "resetFailed": "\u274C \u6062\u590D\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5",
@@ -1957,6 +1957,7 @@ var zh2 = {
   "tunnelMode": "\u516C\u7F51\u6A21\u5F0F\uFF1A",
   "modeQuick": "\u968F\u673A\u57DF\u540D\uFF08\u9ED8\u8BA4\uFF09",
   "modeNamed": "\u56FA\u5B9A\u57DF\u540D",
+  "modeFrp": "\u81EA\u5EFA frp\uFF08TCP\uFF09",
   "namedSummary": "\u56FA\u5B9A\u57DF\u540D\uFF1A{host} \xB7 Token {token}",
   "namedTokenSet": "\u5DF2\u914D\u7F6E",
   "namedTokenMissing": "\u672A\u914D\u7F6E",
@@ -1968,12 +1969,23 @@ var zh2 = {
   "namedNeedCfg": "\u8BF7\u5148\u586B\u5199\u56FA\u5B9A\u57DF\u540D\u4E0E Tunnel Token",
   "namedRunningHint": "\u56FA\u5B9A\u57DF\u540D\uFF08Cloudflare \u547D\u540D\u96A7\u9053\uFF09\u2014\u2014\u5730\u5740\u4E0D\u968F\u91CD\u542F\u53D8\u5316",
   "namedTakeEffect": "\u5DF2\u4FDD\u5B58\u56FA\u5B9A\u57DF\u540D\u914D\u7F6E\u2014\u2014\u9700\u5173\u95ED\u5E76\u91CD\u65B0\u5F00\u542F\u516C\u7F51\u8BBF\u95EE\u540E\u751F\u6548",
+  "frpSummary": "\u81EA\u5EFA frp\uFF1A{server}:{port} \xB7 Token {token}",
+  "frpServerLabel": "\u670D\u52A1\u5668\uFF08frps \u5730\u5740\uFF09\uFF1A",
+  "frpServerPortLabel": "frps \u7AEF\u53E3\uFF1A",
+  "frpRemotePortLabel": "\u8FDC\u7A0B\u7AEF\u53E3\uFF1A",
+  "frpTokenLabel": "frp Token\uFF08\u7559\u7A7A = \u4FDD\u6301\u4E0D\u53D8\uFF09\uFF1A",
+  "frpTlsLabel": "TLS\uFF08\u52A0\u5BC6 frpc\u2192frps \u8FD9\u4E00\u8DF3\uFF09",
+  "frpHow": "\u63D2\u4EF6\u81EA\u52A8\u4E0B\u8F7D frpc \u5E76\u8FDE\u5230\u4F60\u81EA\u5DF1\u7684 frps\uFF0C\u7528 TCP \u628A\u672C\u673A\u4EE3\u7406\u7AEF\u53E3\u8F6C\u53D1\u51FA\u53BB\u3002\u5730\u5740\u56FA\u5B9A\u4E3A http://<\u670D\u52A1\u5668>:<\u8FDC\u7A0B\u7AEF\u53E3>\uFF0C\u670D\u52A1\u5668\u9632\u706B\u5899/\u5B89\u5168\u7EC4\u8981\u653E\u884C\u8BE5\u7AEF\u53E3\u3002\u6D4F\u89C8\u5668\u5230 frps \u662F\u660E\u6587 HTTP\uFF0C\u52A1\u5FC5\u8BBE\u7F6E\u81EA\u5B9A\u4E49\u5F3A\u5BC6\u7801\u3002",
+  "frpSecurity": "\u81EA\u5EFA frp \u7684\u5730\u5740\u56FA\u5B9A\u4E14\u957F\u671F\u5728\u7EBF\u3001\u6BD4\u968F\u673A\u57DF\u540D\u66F4\u5BB9\u6613\u88AB\u626B\u63CF\uFF1A\u8BF7\u8BBE\u7F6E\u81EA\u5B9A\u4E49\u5F3A\u5BC6\u7801\uFF08\u672C\u6A21\u5F0F\u516C\u7F51\u5BC6\u7801\u9ED8\u8BA4\u4E0D\u968F\u91CD\u542F\u8F6E\u6362\uFF09\u3002",
+  "frpNeedCfg": "\u8BF7\u5148\u586B\u5199 frps \u5730\u5740\u4E0E\u8FDC\u7A0B\u7AEF\u53E3",
+  "frpRunningHint": "\u81EA\u5EFA frp\uFF08TCP \u8F6C\u53D1\uFF09\u2014\u2014\u5730\u5740\u4E0D\u968F\u91CD\u542F\u53D8\u5316",
+  "frpTakeEffect": "\u5DF2\u4FDD\u5B58 frp \u914D\u7F6E\u2014\u2014\u9700\u5173\u95ED\u5E76\u91CD\u65B0\u5F00\u542F\u516C\u7F51\u8BBF\u95EE\u540E\u751F\u6548",
   "disclaimerTitle": "\u26A0\uFE0F \u5B89\u5168\u514D\u8D23\u58F0\u660E",
   "disclaimerBody": "\u5F00\u542F\u516C\u7F51 = \u628A\u672C\u673A DSH\uFF08\u80FD\u6267\u884C\u4EE3\u7801\uFF09\u66B4\u9732\u5230\u4E92\u8054\u7F51\u3002\u4EFB\u4F55\u4EBA\u62FF\u5230\u516C\u7F51\u94FE\u63A5\u548C\u5BC6\u7801\uFF0C\u90FD\u80FD\u8BBF\u95EE\u751A\u81F3\u64CD\u4F5C\u4F60\u7684\u7535\u8111\u3002\u8BF7\u786E\u8BA4\uFF1A\u2460 \u4F7F\u7528\u81EA\u5B9A\u4E49\u5F3A\u5BC6\u7801\u6216\u59A5\u5584\u4FDD\u7BA1\u81EA\u52A8\u5BC6\u7801\uFF1B\u2461 \u7528\u5B8C\u7ACB\u5373\u300C\u5173\u95ED\u516C\u7F51\u300D\uFF1B\u2462 \u516C\u53F8/\u6D89\u5BC6\u7F51\u7EDC\u8BF7\u5148\u786E\u8BA4\u5408\u89C4\u3002",
   "disclaimerAgree": "\u6211\u5DF2\u77E5\u60C5\uFF0C\u540C\u610F\u5F00\u542F",
   "disclaimerHint": "\u8BF7\u52FE\u9009\u300C\u6211\u5DF2\u77E5\u60C5\u300D\u540E\u518D\u5F00\u542F\u516C\u7F51",
-  "downloading": "\u23F3 \u4E0B\u8F7D cloudflared\uFF08\u9996\u6B21\u7EA6 20-50MB\uFF0C\u901A\u5E38 1-2 \u5206\u949F\uFF1B\u4E4B\u540E\u79D2\u5F00\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2",
-  "connecting": "\u23F3 \u8FDE\u63A5 Cloudflare \u8FB9\u7F18\uFF08\u901A\u5E38 5-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2{suffix}",
+  "downloading": "\u23F3 \u4E0B\u8F7D\u96A7\u9053\u7A0B\u5E8F\uFF08\u9996\u6B21\u7EA6 20-50MB\uFF0C\u901A\u5E38 1-2 \u5206\u949F\uFF1B\u4E4B\u540E\u79D2\u5F00\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2",
+  "connecting": "\u23F3 \u8FDE\u63A5\u96A7\u9053\u670D\u52A1\uFF08\u901A\u5E38 5-30 \u79D2\uFF09\xB7 \u5DF2\u7B49\u5F85 {s} \u79D2{suffix}",
   "slowHint": " \u2014 \u6709\u70B9\u4E45\uFF1F\u68C0\u67E5\u662F\u5426\u5F00\u7740\u4EE3\u7406/VPN\uFF08Clash TUN \u7B49\uFF09",
   "error": "\u274C \u5F00\u542F\u5931\u8D25\uFF1A{detail}\uFF08\u53EF\u91CD\u8BD5\uFF1B\u82E5\u662F\u4EE3\u7406/VPN \u95EE\u9898\u89C1 README \u6392\u969C\uFF09",
   "unknownError": "\u672A\u77E5\u9519\u8BEF",
@@ -2013,7 +2025,7 @@ var en2 = {
   "resetGo": "Reset",
   "resetIntro": "Temporary fallback when settings break: clear local config and re-roll random PINs (DSH sessions, models and plugin config are untouched)",
   "resetTitle": "\u26A0\uFE0F Confirm factory reset?",
-  "resetBody": "This clears and restores defaults:\n\u2460 Switches: LAN access on, access PIN on, mobile right sidebar on, LAN address auto\n\u2461 Public: mode back to random URL, Tunnel Token and fixed domain cleared, and any running tunnel is stopped\n\u2462 PINs: both public and LAN become new random 8-character PINs (old ones stop working; the phone must re-enter)\n\nYour DSH sessions, models and plugin config are untouched. This cannot be undone.",
+  "resetBody": "This clears and restores defaults:\n\u2460 Switches: LAN access on, access PIN on, mobile right sidebar on, LAN address auto\n\u2461 Public: mode back to random URL, Tunnel Token, fixed domain and frp config cleared, and any running tunnel is stopped\n\u2462 PINs: both public and LAN become new random 8-character PINs (old ones stop working; the phone must re-enter)\n\nYour DSH sessions, models and plugin config are untouched. This cannot be undone.",
   "resetConfirm": "Reset",
   "resetDone": "\u2705 Factory reset done: settings cleared and PINs re-rolled (re-enter the PIN on your phone)",
   "resetFailed": "\u274C Reset failed \u2014 please retry",
@@ -2055,6 +2067,7 @@ var en2 = {
   "tunnelMode": "Mode:",
   "modeQuick": "Random URL (default)",
   "modeNamed": "Fixed domain",
+  "modeFrp": "Self-hosted frp (TCP)",
   "namedSummary": "Fixed domain: {host} \xB7 Token {token}",
   "namedTokenSet": "configured",
   "namedTokenMissing": "not set",
@@ -2066,12 +2079,23 @@ var en2 = {
   "namedNeedCfg": "Set the fixed domain and Tunnel Token first",
   "namedRunningHint": "Fixed domain (Cloudflare named tunnel) \u2014 the URL no longer changes on restart",
   "namedTakeEffect": "Fixed-domain config saved \u2014 turn public access off and on again to take effect",
+  "frpSummary": "Self-hosted frp: {server}:{port} \xB7 Token {token}",
+  "frpServerLabel": "Server (frps address):",
+  "frpServerPortLabel": "frps port:",
+  "frpRemotePortLabel": "Remote port:",
+  "frpTokenLabel": "frp token (blank = keep current):",
+  "frpTlsLabel": "TLS (encrypts the frpc\u2192frps hop)",
+  "frpHow": "The plugin downloads frpc automatically and connects to your own frps, forwarding the local proxy port over TCP. The address is fixed at http://<server>:<remote-port>; open that port in the server firewall/security group. Browser\u2192frps is plain HTTP, so set a strong custom PIN.",
+  "frpSecurity": "A self-hosted frp address is fixed and long-lived, so it is easier to scan than a random URL \u2014 set a strong custom PIN (the public PIN is not rotated on restart in this mode).",
+  "frpNeedCfg": "Set the frps address and remote port first",
+  "frpRunningHint": "Self-hosted frp (TCP forwarding) \u2014 the URL no longer changes on restart",
+  "frpTakeEffect": "frp config saved \u2014 turn public access off and on again to take effect",
   "disclaimerTitle": "\u26A0\uFE0F Security disclaimer",
   "disclaimerBody": "Enabling public access exposes this computer\u2019s DSH (which can execute code) to the internet. Anyone with the public link and PIN can reach \u2014 and operate \u2014 your computer. Please confirm: \u2460 use a strong custom PIN or keep the auto-generated one safe; \u2461 turn public access OFF as soon as you\u2019re done; \u2462 on a corporate/classified network, confirm compliance first.",
   "disclaimerAgree": "I understand and agree",
   "disclaimerHint": 'Check "I understand" before enabling public access',
-  "downloading": "\u23F3 Downloading cloudflared (first run ~20-50MB, usually 1-2 min; instant afterward) \xB7 {s}s elapsed",
-  "connecting": "\u23F3 Connecting to Cloudflare edge (usually 5-30s) \xB7 {s}s elapsed{suffix}",
+  "downloading": "\u23F3 Downloading the tunnel binary (first run ~20-50MB, usually 1-2 min; instant afterward) \xB7 {s}s elapsed",
+  "connecting": "\u23F3 Connecting to the tunnel service (usually 5-30s) \xB7 {s}s elapsed{suffix}",
   "slowHint": " \u2014 taking long? Check for a proxy/VPN (e.g., Clash TUN)",
   "error": "\u274C Failed to enable: {detail} (you can retry; for proxy/VPN issues see the README)",
   "unknownError": "unknown error",
@@ -2224,6 +2248,10 @@ function PocketSettingsTab({ rpcCall, t }) {
       setError(t("namedNeedCfg"));
       return;
     }
+    if (cfg?.mode === "frp" && (!cfg.frp?.server || !cfg.frp?.remotePort)) {
+      setError(t("frpNeedCfg"));
+      return;
+    }
     setBusy(true);
     setError(null);
     setTunnelState({ phase: "starting", detail: "\u6B63\u5728\u5F00\u542F\u2026", startedAt: Date.now() });
@@ -2265,6 +2293,23 @@ function PocketSettingsTab({ rpcCall, t }) {
         hostname: tunnelCfg?.hostname ?? "",
         token: tunnelCfg?.token || void 0
         // 留空不覆盖已存 Token
+      }));
+      setTunnelCfg(null);
+    } catch (err) {
+      setTunnelCfg((c) => ({ ...c, err: err.message }));
+    }
+  };
+  const saveFrpTunnel = async () => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, {
+        mode: "frp",
+        token: tunnelCfg?.token || void 0,
+        frp: {
+          server: tunnelCfg?.server ?? "",
+          serverPort: Number(tunnelCfg?.serverPort) || 7e3,
+          remotePort: Number(tunnelCfg?.remotePort) || 60012,
+          tls: tunnelCfg?.tls !== false
+        }
       }));
       setTunnelCfg(null);
     } catch (err) {
@@ -2379,9 +2424,15 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStarting = ["downloading", "starting", "registering"].includes(tunnelPhase);
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
-  const tunnelModeView = status?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false };
+  const tunnelModeView = status?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false, frp: null };
   const namedMode = tunnelModeView.mode === "named";
-  const namedActive = namedMode || tunnelCfg !== null;
+  const frpMode = tunnelModeView.mode === "frp";
+  const frpView = tunnelModeView.frp ?? null;
+  const namedEditing = tunnelCfg !== null && tunnelCfg?.kind !== "frp";
+  const frpEditing = tunnelCfg?.kind === "frp";
+  const namedActive = namedMode || namedEditing;
+  const frpActive = frpMode || frpEditing;
+  const frpInput = { margin: "4px 0 0 6px", padding: "4px 8px", fontSize: 13, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 6, outline: "none", width: 200 };
   const errText = (msg) => {
     const s = String(msg ?? "");
     const i = s.indexOf(" | ");
@@ -2567,34 +2618,35 @@ function PocketSettingsTab({ rpcCall, t }) {
       tunnelUrl ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : t("wanHint")),
+        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : frpMode ? t("frpRunningHint") : t("wanHint")),
         // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
         (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")),
-        // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
+        // 地址模式行（随机/固定域名/自建 frp；后两者选中或编辑时高亮）
         row(
           t("modeLabel"),
           (0, import_react2.createElement)(
             "span",
             { style: { display: "inline-flex", gap: 6 } },
-            (0, import_react2.createElement)("button", { style: modeBtnStyle(!namedActive), onClick: namedMode ? switchToQuick : tunnelCfg ? () => setTunnelCfg(null) : void 0 }, t("modeQuick")),
-            (0, import_react2.createElement)("button", { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(tunnelCfg ? null : { hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("modeNamed"))
+            (0, import_react2.createElement)("button", { style: modeBtnStyle(!namedActive && !frpActive), onClick: namedMode || frpMode ? switchToQuick : tunnelCfg ? () => setTunnelCfg(null) : void 0 }, t("modeQuick")),
+            (0, import_react2.createElement)("button", { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(namedEditing ? null : { kind: "named", hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("modeNamed")),
+            (0, import_react2.createElement)("button", { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: "", err: null }) }, t("modeFrp"))
           ),
           (0, import_react2.createElement)(
             "div",
             { style: { marginTop: 6 } },
-            // 刚保存固定域名但当前连接仍是随机域名：需关闭后重新开启才生效
-            namedMode && /trycloudflare\.com/i.test(tunnelUrl ?? "") ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("namedTakeEffect")) : null,
+            // 刚保存固定地址模式但当前连接仍是随机域名：需关闭后重新开启才生效
+            (namedMode || frpMode) && /trycloudflare\.com/i.test(tunnelUrl ?? "") ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t(namedMode ? "namedTakeEffect" : "frpTakeEffect")) : null,
             // 固定域名：已保存摘要 + 修改入口（非编辑态）
-            namedMode && !tunnelCfg ? (0, import_react2.createElement)(
+            namedMode && !namedEditing ? (0, import_react2.createElement)(
               "div",
               { style: { ...styles.muted } },
               fmt(t, "namedSummary", { host: tunnelModeView.hostname || "\u2014", token: tunnelModeView.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }),
-              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("namedEdit")),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: "named", hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("namedEdit")),
               (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("namedHow")),
               !tunnelModeView.tokenSet || !tunnelModeView.hostname ? (0, import_react2.createElement)("div", { style: { marginTop: 2, color: "var(--dsw-alias-state-error-primary,#dc2626)" } }, t("namedNeedCfg")) : null
             ) : null,
             // 固定域名：编辑表单（域名 + Tunnel Token，Token 留空保持不变）
-            tunnelCfg ? (0, import_react2.createElement)(
+            namedEditing ? (0, import_react2.createElement)(
               "div",
               { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
               (0, import_react2.createElement)(
@@ -2637,6 +2689,88 @@ function PocketSettingsTab({ rpcCall, t }) {
               (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("namedHow")),
               (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("namedSecurity")),
               tunnelCfg.err ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", marginTop: 4 } }, errText(tunnelCfg.err)) : null
+            ) : null,
+            // 自建 frp：已保存摘要 + 修改入口（非编辑态）
+            frpMode && !frpEditing ? (0, import_react2.createElement)(
+              "div",
+              { style: { ...styles.muted } },
+              fmt(t, "frpSummary", { server: frpView?.server || "\u2014", port: frpView?.remotePort ?? "\u2014", token: frpView?.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: "", err: null }) }, t("namedEdit")),
+              (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("frpHow")),
+              !frpView?.server || !frpView?.remotePort ? (0, import_react2.createElement)("div", { style: { marginTop: 2, color: "var(--dsw-alias-state-error-primary,#dc2626)" } }, t("frpNeedCfg")) : null
+            ) : null,
+            // 自建 frp：编辑表单（服务器/端口/远程端口/TLS/Token）
+            frpEditing ? (0, import_react2.createElement)(
+              "div",
+              { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.6 } },
+              (0, import_react2.createElement)(
+                "div",
+                null,
+                t("frpServerLabel"),
+                (0, import_react2.createElement)("input", {
+                  style: frpInput,
+                  placeholder: "158.101.29.160",
+                  value: tunnelCfg.server ?? "",
+                  autoFocus: true,
+                  onChange: (e) => setTunnelCfg((c) => ({ ...c, server: e.target.value.trim(), err: null })),
+                  onKeyDown: (e) => {
+                    if (e.key === "Enter") saveFrpTunnel();
+                    if (e.key === "Escape") setTunnelCfg(null);
+                  }
+                })
+              ),
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6 } },
+                t("frpServerPortLabel"),
+                (0, import_react2.createElement)("input", {
+                  style: { ...frpInput, width: 90 },
+                  type: "number",
+                  value: tunnelCfg.serverPort ?? 7e3,
+                  onChange: (e) => setTunnelCfg((c) => ({ ...c, serverPort: e.target.value, err: null }))
+                })
+              ),
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6 } },
+                t("frpRemotePortLabel"),
+                (0, import_react2.createElement)("input", {
+                  style: { ...frpInput, width: 90 },
+                  type: "number",
+                  value: tunnelCfg.remotePort ?? 60012,
+                  onChange: (e) => setTunnelCfg((c) => ({ ...c, remotePort: e.target.value, err: null }))
+                })
+              ),
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6 } },
+                t("frpTokenLabel"),
+                (0, import_react2.createElement)("input", {
+                  style: { ...frpInput, width: 240, fontFamily: "ui-monospace,Menlo,monospace" },
+                  type: "password",
+                  value: tunnelCfg.token ?? "",
+                  onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })),
+                  onKeyDown: (e) => {
+                    if (e.key === "Enter") saveFrpTunnel();
+                    if (e.key === "Escape") setTunnelCfg(null);
+                  }
+                })
+              ),
+              (0, import_react2.createElement)(
+                "label",
+                { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 8 } },
+                (0, import_react2.createElement)("input", { type: "checkbox", checked: tunnelCfg.tls !== false, onChange: (e) => setTunnelCfg((c) => ({ ...c, tls: e.target.checked })) }),
+                t("frpTlsLabel")
+              ),
+              (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6, display: "flex", gap: 8 } },
+                (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: saveFrpTunnel }, t("save")),
+                (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: () => setTunnelCfg(null) }, t("cancel"))
+              ),
+              (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("frpHow")),
+              (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("frpSecurity")),
+              tunnelCfg.err ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", marginTop: 4 } }, errText(tunnelCfg.err)) : null
             ) : null
           )
         ),
@@ -2654,7 +2788,8 @@ function PocketSettingsTab({ rpcCall, t }) {
             { style: { marginTop: 6 } },
             customPin?.which === "public" ? customPinRow("public") : null,
             status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("pinCustomHint")) : null,
-            namedMode ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("namedSecurity")) : null
+            namedMode ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("namedSecurity")) : null,
+            frpMode ? (0, import_react2.createElement)("div", { style: { ...styles.warn } }, t("frpSecurity")) : null
           )
         ) : null
       ) : null

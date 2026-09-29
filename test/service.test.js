@@ -951,3 +951,55 @@ test('startTunnel 同步抛错后不残留 rejected 的 in-flight（TDZ 回归�
   assert.equal((await service.status()).tunnelRunning, true, '隧道确实起来了');
   await service.dispose();
 });
+
+test('frp 模式：公网地址用自建 frps 的地址+远程端口拼；onTunnelReady 收到 frp；status 不泄露 token', async () => {
+  const internals = stubInternals();
+  const frpArgs = [];
+  internals.startFrpTunnel = async (opts) => {
+    frpArgs.push(opts);
+    return { url: `http://${opts.server}:${opts.remotePort}`, kill: () => {}, onExit: () => () => {} };
+  };
+  let readyMode = null;
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals,
+    getTunnelConfig: () => ({
+      mode: 'frp', token: 's3cret', hostname: '',
+      server: '158.101.29.160', serverPort: 7000, remotePort: 60012, tls: true,
+    }),
+    onTunnelReady: (mode) => { readyMode = mode; return null; },
+  });
+  await service.startProxy();
+  const url = await service.startTunnel();
+  assert.equal(url, 'http://158.101.29.160:60012', '公网地址 = http://<frps>:<remotePort>');
+  assert.equal(frpArgs.length, 1, '走 frp 启动路径（不是 cloudflared）');
+  assert.equal(frpArgs[0].server, '158.101.29.160', '服务器透传');
+  assert.equal(frpArgs[0].remotePort, 60012, '远程端口透传');
+  assert.equal(frpArgs[0].token, 's3cret', 'token 作为 frps auth.token 透传');
+  assert.equal(frpArgs[0].localPort, 3081, '本地端口 = 代理端口');
+  assert.equal(readyMode, 'frp', 'onTunnelReady 收到 frp（不轮换公网密码）');
+
+  const st = await service.status();
+  assert.equal(st.tunnelRunning, true, '隧道运行中');
+  assert.equal(st.tunnelConfig.mode, 'frp', 'status 回显 frp 模式');
+  assert.equal(st.tunnelConfig.frp.server, '158.101.29.160');
+  assert.equal(st.tunnelConfig.frp.remotePort, 60012);
+  assert.equal(st.tunnelConfig.frp.tokenSet, true, '只回显 tokenSet');
+  assert.equal(st.tunnelConfig.frp.token, undefined, '不回显 token 本身');
+  await service.dispose();
+});
+
+test('frp 模式：缺服务器/远程端口时同步报错（中文可排查）', async () => {
+  const internals = stubInternals();
+  internals.startFrpTunnel = async () => { throw new Error('不应被调用'); };
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals,
+    getTunnelConfig: () => ({ mode: 'frp', token: '', server: '', remotePort: 60012, tls: true }),
+  });
+  await service.startProxy();
+  await assert.rejects(() => service.startTunnel(), /frp 未配置完整/, '缺服务器地址时给出中文提示');
+  await service.dispose();
+});

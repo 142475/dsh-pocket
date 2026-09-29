@@ -86,3 +86,38 @@ test('firstMeaningfulErrorLine: 运行期错误（403）仍取尾部', () => {
   const r = firstMeaningfulErrorLine(buf);
   assert.ok(r.includes('403'), '应保留尾部含 403 的报错信息');
 });
+
+// ---------- 自建 frp（TCP 转发）：配置生成是纯函数，可跨平台断言 ----------
+
+test('frpConfigToml：生成 frpc.toml（服务器/端口/token/TLS/tcp 代理）', async () => {
+  const { frpConfigToml } = await import('../lib/tunnel.mjs');
+  const toml = frpConfigToml({
+    server: '158.101.29.160', serverPort: 7000, token: 's3cret', remotePort: 60012, localPort: 3081, tls: true,
+  });
+  assert.match(toml, /serverAddr = "158\.101\.29\.160"/, '服务器地址');
+  assert.match(toml, /serverPort = 7000/, 'frps 端口');
+  assert.match(toml, /auth\.token = "s3cret"/, 'token 写进配置文件（不进 argv）');
+  assert.match(toml, /transport\.tls\.enable = true/, 'TLS 开启');
+  assert.match(toml, /\[\[proxies\]\]/, '一个 tcp 代理');
+  assert.match(toml, /type = "tcp"/, 'TCP 转发');
+  assert.match(toml, /localIP = "127\.0\.0\.1"/, '只转发本机回环');
+  assert.match(toml, /localPort = 3081/, '本地端口 = 代理端口');
+  assert.match(toml, /remotePort = 60012/, '远程端口');
+});
+
+test('frpConfigToml：无 token 不写 auth 段；TLS 关闭不写 transport 段', async () => {
+  const { frpConfigToml } = await import('../lib/tunnel.mjs');
+  const toml = frpConfigToml({ server: 'frp.example.com', serverPort: 7000, remotePort: 60012, localPort: 3081, tls: false });
+  assert.ok(!toml.includes('auth.'), '无 token 不写 auth');
+  assert.ok(!toml.includes('transport.tls'), 'TLS 关闭不写 transport.tls');
+});
+
+test('frpAssets：按平台给出官方发布资产名（windows 是 zip，其余 tar.gz）', async () => {
+  const { frpAssets } = await import('../lib/tunnel.mjs');
+  const assets = frpAssets('v0.71.0');
+  assert.equal(assets.length, 1, '每个平台一个候选资产');
+  const name = assets[0];
+  assert.match(name, /^frp_0\.71\.0_(windows|darwin|linux)_(amd64|arm64|386|arm)\.(zip|tar\.gz)$/, `资产名合法：${name}`);
+  if (process.platform === 'win32') assert.ok(name.endsWith('.zip'), 'Windows 资产是 zip');
+  else assert.ok(name.endsWith('.tar.gz'), '类 Unix 资产是 tar.gz');
+});

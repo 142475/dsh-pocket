@@ -70,7 +70,7 @@ export function redactStatus(s) {
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: 'idle' },
-    tunnelConfig: s?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false },
+    tunnelConfig: s?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false, frp: null },
     dshPort: s?.dshPort ?? null,
   };
 }

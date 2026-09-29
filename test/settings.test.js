@@ -121,14 +121,16 @@ test('setCustomPin / rotateAccessToken（issue #33）：8–64 位字母数字�
 
 // ---------- 命名隧道配置（issue #66：固定公网域名） ----------
 
-test('隧道模式（issue #66）：默认 quick，可切 named/quick，非法值拒绝', () => withHome(async () => {
+test('隧道模式（issue #66）：默认 quick，可切 named/frp/quick，非法值拒绝', () => withHome(async () => {
   const { tunnelMode, setTunnelMode } = await import('../lib/settings.mjs');
   assert.equal(tunnelMode(), 'quick', '默认快速隧道');
   assert.equal(setTunnelMode('named'), 'named', '切换命名隧道');
   assert.equal(tunnelMode(), 'named', '命名模式持久化');
+  assert.equal(setTunnelMode('frp'), 'frp', '切换自建 frp');
+  assert.equal(tunnelMode(), 'frp', 'frp 模式持久化');
   assert.equal(setTunnelMode('quick'), 'quick', '切回快速隧道');
   assert.equal(tunnelMode(), 'quick', '快速模式持久化');
-  assert.throws(() => setTunnelMode('other'), /quick 或 named/, '非法模式拒绝');
+  assert.throws(() => setTunnelMode('other'), /quick、named 或 frp/, '非法模式拒绝');
 }));
 
 test('Tunnel Token（issue #66）：设置/清除持久化；过短/非法字符拒绝', () => withHome(async () => {
@@ -225,4 +227,59 @@ test('cloudflared 路径（issue #45）：默认空、可设可清', async () =>
   assert.equal(cloudflaredPath(), '', '清除后回到默认');
   // 空格 trim
   assert.equal(setCloudflaredPath('  /opt/cf/cloudflared  '), '/opt/cf/cloudflared', '自动 trim');
+}));
+
+// ---------- 自建 frp（TCP 转发到用户自己的 frps） ----------
+
+test('frp 配置：默认值、持久化、非法地址/端口处理', () => withHome(async () => {
+  const s = await import('../lib/settings.mjs');
+  assert.equal(s.frpServer(), '', '默认未配置服务器');
+  assert.equal(s.frpServerPort(), 7000, 'frps 端口默认 7000');
+  assert.equal(s.frpRemotePort(), 60012, '远程端口默认 60012');
+  assert.equal(s.frpToken(), '', '默认无 token');
+  assert.equal(s.frpTls(), true, '默认开启 frpc→frps TLS');
+  assert.equal(s.frpcPath(), '', '默认自动探测/下载 frpc');
+
+  assert.equal(s.setFrpServer(' 158.101.29.160 '), '158.101.29.160', 'IPv4 设置成功（自动 trim）');
+  assert.equal(s.frpServer(), '158.101.29.160', '持久化生效');
+  assert.equal(s.setFrpServer('frp.example.com'), 'frp.example.com', '域名可用');
+  assert.throws(() => s.setFrpServer('http://frp.example.com'), /格式/, '带协议前缀拒绝');
+  assert.throws(() => s.setFrpServer('bad host'), /格式/, '含空格拒绝');
+  assert.throws(() => s.setFrpServer('1.2.3'), /格式/, '不完整 IP 拒绝（不会让 frpc 拿着错地址去连）');
+  assert.throws(() => s.setFrpServer('999.1.1.1'), /格式/, '越界 IP 拒绝');
+
+  assert.equal(s.setFrpServerPort(7001), 7001, '设置 frps 端口');
+  assert.equal(s.setFrpServerPort(70000), 7000, '非法端口回退默认');
+  assert.equal(s.setFrpRemotePort(60013), 60013, '设置远程端口');
+  assert.equal(s.setFrpRemotePort('garbage'), 60012, '非法远程端口回退默认');
+  assert.equal(s.setFrpToken('s3cret'), 's3cret', '设置 token');
+  assert.equal(s.frpToken(), 's3cret', 'token 持久化');
+  assert.equal(s.setFrpTls(false), false, '关闭 TLS');
+  assert.equal(s.frpTls(), false, 'TLS 状态持久化');
+  assert.equal(s.setFrpcPath('/opt/frp/frpc'), '/opt/frp/frpc', '自定义 frpc 路径');
+
+  const raw = JSON.parse(readFileSync(s.settingsPath(), 'utf8'));
+  assert.equal(raw.frpServer, 'frp.example.com', 'settings.json 字段正确');
+  assert.equal(raw.frpToken, 's3cret', 'token 只落本机 settings.json');
+  assert.equal(raw.frpRemotePort, undefined, '非法值已从 settings.json 移除（回退默认 60012）');
+  s.setFrpRemotePort(60013);
+  assert.equal(JSON.parse(readFileSync(s.settingsPath(), 'utf8')).frpRemotePort, 60013, '合法远程端口落盘');
+
+  assert.equal(s.setFrpServer(''), '', '空字符串清除服务器');
+  assert.equal(s.setFrpToken(''), '', '空字符串清除 token');
+  assert.equal(s.setFrpcPath(''), '', '空字符串清除路径');
+}));
+
+test('恢复出厂设置会清掉 frp 配置（模式回随机域名、服务器/token 清空）', () => withHome(async () => {
+  const s = await import('../lib/settings.mjs');
+  const { resetPocketState } = await import('../lib/index.js');
+  s.setTunnelMode('frp');
+  s.setFrpServer('158.101.29.160');
+  s.setFrpToken('s3cret');
+  s.setFrpRemotePort(60013);
+  resetPocketState();
+  assert.equal(s.tunnelMode(), 'quick', '模式回到随机域名');
+  assert.equal(s.frpServer(), '', 'frp 服务器已清空');
+  assert.equal(s.frpToken(), '', 'frp token 已清空');
+  assert.equal(s.frpRemotePort(), 60012, '远程端口回到默认');
 }));

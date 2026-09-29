@@ -177,10 +177,14 @@ function PocketSettingsTab({ rpcCall, t }) {
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
   const doStartTunnel = async () => {
-    // 命名隧道模式：Token/域名没配齐就不发起（服务端同样会拒绝）
+    // 固定地址模式（named / frp）：配置没配齐就不发起（服务端同样会拒绝）
     const cfg = status?.tunnelConfig;
     if (cfg?.mode === 'named' && (!cfg.hostname || !cfg.tokenSet)) {
       setError(t('namedNeedCfg'));
+      return;
+    }
+    if (cfg?.mode === 'frp' && (!cfg.frp?.server || !cfg.frp?.remotePort)) {
+      setError(t('frpNeedCfg'));
       return;
     }
     setBusy(true);
@@ -209,8 +213,9 @@ function PocketSettingsTab({ rpcCall, t }) {
     try { setStatus(await call(POCKET_ENDPOINTS.tunnelStop, {})); } catch { /* 忽略 */ }
   };
 
-  // 公网模式（issue #66）：随机域名（默认零配置）/ 固定域名（Cloudflare 命名隧道 + Tunnel Token）
-  // tunnelCfg：编辑态 { hostname, token, err } | null；token 输入留空 = 保持已存的 Token 不变
+  // 公网模式（issue #66 + frp）：随机域名（默认零配置）/ 固定域名（Cloudflare 命名隧道 + Tunnel Token）
+  // / 自建 frp（TCP 转发到自己的 frps）。tunnelCfg 是编辑态 { kind: 'named' | 'frp', ... , err } | null；
+  // token 输入留空 = 保持已存的 Token 不变。
   const [tunnelCfg, setTunnelCfg] = useState(null);
   const switchToQuick = async () => {
     try { setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, { mode: 'quick' })); } catch (err) { setError(err.message); }
@@ -221,6 +226,24 @@ function PocketSettingsTab({ rpcCall, t }) {
         mode: 'named',
         hostname: tunnelCfg?.hostname ?? '',
         token: tunnelCfg?.token || undefined, // 留空不覆盖已存 Token
+      }));
+      setTunnelCfg(null);
+    } catch (err) {
+      setTunnelCfg((c) => ({ ...c, err: err.message }));
+    }
+  };
+  // 自建 frp（TCP）：保存服务器/端口/远程端口/TLS/Token；token 留空不覆盖已存值
+  const saveFrpTunnel = async () => {
+    try {
+      setStatus(await call(POCKET_ENDPOINTS.tunnelSetConfig, {
+        mode: 'frp',
+        token: tunnelCfg?.token || undefined,
+        frp: {
+          server: tunnelCfg?.server ?? '',
+          serverPort: Number(tunnelCfg?.serverPort) || 7000,
+          remotePort: Number(tunnelCfg?.remotePort) || 60012,
+          tls: tunnelCfg?.tls !== false,
+        },
       }));
       setTunnelCfg(null);
     } catch (err) {
@@ -346,11 +369,19 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelStarting = ['downloading', 'starting', 'registering'].includes(tunnelPhase);
   const tunnelStateDetail = tunnelState?.detail ?? '';
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
-  // 公网模式视图（issue #66）：{ mode, hostname, tokenSet }
-  const tunnelModeView = status?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false };
+  // 公网模式视图（issue #66 + frp）：{ mode, hostname, tokenSet, frp: { server, serverPort, remotePort, tls, tokenSet } }
+  const tunnelModeView = status?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false, frp: null };
   const namedMode = tunnelModeView.mode === 'named';
-  // 模式按钮选中态高亮：固定域名模式本身，或正在编辑固定域名配置，都视为「选中」
-  const namedActive = namedMode || tunnelCfg !== null;
+  const frpMode = tunnelModeView.mode === 'frp';
+  const frpView = tunnelModeView.frp ?? null;
+  // 编辑态：kind 区分固定域名 / 自建 frp 两张表单（旧版没有 kind，视为 named）
+  const namedEditing = tunnelCfg !== null && tunnelCfg?.kind !== 'frp';
+  const frpEditing = tunnelCfg?.kind === 'frp';
+  // 模式按钮选中态高亮：该模式本身，或正在编辑它的配置，都视为「选中」
+  const namedActive = namedMode || namedEditing;
+  const frpActive = frpMode || frpEditing;
+  // frp 表单输入框样式（与固定域名表单同款）
+  const frpInput = { margin: '4px 0 0 6px', padding: '4px 8px', fontSize: 13, border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 6, outline: 'none', width: 200 };
   // 后端错误消息统一为「中文 | English」混排；按当前界面语言只显示对应一半
   const errText = (msg) => {
     const s = String(msg ?? '');
@@ -507,27 +538,28 @@ function PocketSettingsTab({ rpcCall, t }) {
           : (!tunnelUrl && !isDesktop ? h('div', { style: { ...styles.muted, marginTop: 8 } }, t('wanOffHint')) : null),
       tunnelUrl
         ? h('div', null,
-          qrArea(status.tunnelQr, tunnelUrl, namedMode ? t('namedRunningHint') : t('wanHint')),
+          qrArea(status.tunnelQr, tunnelUrl, namedMode ? t('namedRunningHint') : frpMode ? t('frpRunningHint') : t('wanHint')),
           // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
           h('div', { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: '4px solid var(--dsw-alias-state-warn-primary,#b45309)', background: 'var(--dsw-alias-bg-layer-2,#f3f4f6)', borderRadius: 8, padding: '8px 10px' } }, t('wanEphemeralWarn')),
-          // 地址模式行（随机/固定；固定域名选中或编辑时高亮）
+          // 地址模式行（随机/固定域名/自建 frp；后两者选中或编辑时高亮）
           row(t('modeLabel'),
             h('span', { style: { display: 'inline-flex', gap: 6 } },
-              h('button', { style: modeBtnStyle(!namedActive), onClick: namedMode ? switchToQuick : (tunnelCfg ? () => setTunnelCfg(null) : undefined) }, t('modeQuick')),
-              h('button', { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(tunnelCfg ? null : { hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('modeNamed')),
+              h('button', { style: modeBtnStyle(!namedActive && !frpActive), onClick: namedMode || frpMode ? switchToQuick : (tunnelCfg ? () => setTunnelCfg(null) : undefined) }, t('modeQuick')),
+              h('button', { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(namedEditing ? null : { kind: 'named', hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('modeNamed')),
+              h('button', { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: '', err: null }) }, t('modeFrp')),
             ),
             h('div', { style: { marginTop: 6 } },
-              // 刚保存固定域名但当前连接仍是随机域名：需关闭后重新开启才生效
-              namedMode && /trycloudflare\.com/i.test(tunnelUrl ?? '') ? h('div', { style: { ...styles.warn } }, t('namedTakeEffect')) : null,
+              // 刚保存固定地址模式但当前连接仍是随机域名：需关闭后重新开启才生效
+              (namedMode || frpMode) && /trycloudflare\.com/i.test(tunnelUrl ?? '') ? h('div', { style: { ...styles.warn } }, t(namedMode ? 'namedTakeEffect' : 'frpTakeEffect')) : null,
               // 固定域名：已保存摘要 + 修改入口（非编辑态）
-              namedMode && !tunnelCfg ? h('div', { style: { ...styles.muted } },
+              namedMode && !namedEditing ? h('div', { style: { ...styles.muted } },
                 fmt(t, 'namedSummary', { host: tunnelModeView.hostname || '—', token: tunnelModeView.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }),
-                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('namedEdit')),
+                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: 'named', hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('namedEdit')),
                 h('div', { style: { ...styles.muted, marginTop: 4 } }, t('namedHow')),
                 !tunnelModeView.tokenSet || !tunnelModeView.hostname ? h('div', { style: { marginTop: 2, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('namedNeedCfg')) : null,
               ) : null,
               // 固定域名：编辑表单（域名 + Tunnel Token，Token 留空保持不变）
-              tunnelCfg ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
+              namedEditing ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
                 h('div', null,
                   t('namedHostnameLabel'),
                   h('input', {
@@ -557,6 +589,66 @@ function PocketSettingsTab({ rpcCall, t }) {
                 h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } }, t('namedSecurity')),
                 tunnelCfg.err ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', marginTop: 4 } }, errText(tunnelCfg.err)) : null,
               ) : null,
+              // 自建 frp：已保存摘要 + 修改入口（非编辑态）
+              frpMode && !frpEditing ? h('div', { style: { ...styles.muted } },
+                fmt(t, 'frpSummary', { server: frpView?.server || '—', port: frpView?.remotePort ?? '—', token: frpView?.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }),
+                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: '', err: null }) }, t('namedEdit')),
+                h('div', { style: { ...styles.muted, marginTop: 4 } }, t('frpHow')),
+                !frpView?.server || !frpView?.remotePort ? h('div', { style: { marginTop: 2, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('frpNeedCfg')) : null,
+              ) : null,
+              // 自建 frp：编辑表单（服务器/端口/远程端口/TLS/Token）
+              frpEditing ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.6 } },
+                h('div', null,
+                  t('frpServerLabel'),
+                  h('input', {
+                    style: frpInput,
+                    placeholder: '158.101.29.160',
+                    value: tunnelCfg.server ?? '',
+                    autoFocus: true,
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, server: e.target.value.trim(), err: null })),
+                    onKeyDown: (e) => { if (e.key === 'Enter') saveFrpTunnel(); if (e.key === 'Escape') setTunnelCfg(null); },
+                  }),
+                ),
+                h('div', { style: { marginTop: 6 } },
+                  t('frpServerPortLabel'),
+                  h('input', {
+                    style: { ...frpInput, width: 90 },
+                    type: 'number',
+                    value: tunnelCfg.serverPort ?? 7000,
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, serverPort: e.target.value, err: null })),
+                  }),
+                ),
+                h('div', { style: { marginTop: 6 } },
+                  t('frpRemotePortLabel'),
+                  h('input', {
+                    style: { ...frpInput, width: 90 },
+                    type: 'number',
+                    value: tunnelCfg.remotePort ?? 60012,
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, remotePort: e.target.value, err: null })),
+                  }),
+                ),
+                h('div', { style: { marginTop: 6 } },
+                  t('frpTokenLabel'),
+                  h('input', {
+                    style: { ...frpInput, width: 240, fontFamily: 'ui-monospace,Menlo,monospace' },
+                    type: 'password',
+                    value: tunnelCfg.token ?? '',
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, token: e.target.value.trim(), err: null })),
+                    onKeyDown: (e) => { if (e.key === 'Enter') saveFrpTunnel(); if (e.key === 'Escape') setTunnelCfg(null); },
+                  }),
+                ),
+                h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
+                  h('input', { type: 'checkbox', checked: tunnelCfg.tls !== false, onChange: (e) => setTunnelCfg((c) => ({ ...c, tls: e.target.checked })) }),
+                  t('frpTlsLabel'),
+                ),
+                h('div', { style: { marginTop: 6, display: 'flex', gap: 8 } },
+                  h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: saveFrpTunnel }, t('save')),
+                  h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: () => setTunnelCfg(null) }, t('cancel')),
+                ),
+                h('div', { style: { ...styles.muted, marginTop: 6 } }, t('frpHow')),
+                h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } }, t('frpSecurity')),
+                tunnelCfg.err ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', marginTop: 4 } }, errText(tunnelCfg.err)) : null,
+              ) : null,
             ),
           ),
           // 访问密码行：值 + 自定义（自定义输入态整体替换）
@@ -570,7 +662,8 @@ function PocketSettingsTab({ rpcCall, t }) {
               h('div', { style: { marginTop: 6 } },
                 customPin?.which === 'public' ? customPinRow('public') : null,
                 status?.publicPinCustom ? h('div', { style: { ...styles.warn } }, t('pinCustomHint')) : null,
-                namedMode ? h('div', { style: { ...styles.warn } }, t('namedSecurity')) : null))
+                namedMode ? h('div', { style: { ...styles.warn } }, t('namedSecurity')) : null,
+                frpMode ? h('div', { style: { ...styles.warn } }, t('frpSecurity')) : null))
             : null,
         )
         : null,
