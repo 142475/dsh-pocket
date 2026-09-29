@@ -69,7 +69,7 @@ export function redactStatus(s) {
     tunnelState: s?.tunnelState ?? { phase: 'idle' },
     // 就绪度快照（自愈排障用；只有计数/时间戳/错误文案，无敏感信息）
     tunnelHealth: s?.tunnelHealth ?? null,
-    tunnelConfig: s?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false },
+    tunnelConfig: s?.tunnelConfig ?? { mode: 'quick', hostname: '', tokenSet: false, frp: null },
     dshPort: s?.dshPort ?? null,
   };
 }

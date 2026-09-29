@@ -2,3 +2,6 @@ node_modules/
 *.log
 .DS_Store
 .workbuddy/
+
+# 本地临时脚本/产物
+temp/
