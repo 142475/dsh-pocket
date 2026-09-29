@@ -1003,3 +1003,69 @@ test('frp 模式：缺服务器/远程端口时同步报错（中文可排查）
   await assert.rejects(() => service.startTunnel(), /frp 未配置完整/, '缺服务器地址时给出中文提示');
   await service.dispose();
 });
+
+test('切换通道：设置从 named 改成 frp 后再 startTunnel 会先停旧隧道、按新模式拉起', async () => {
+  // 回归背景：设置页换了通道但隧道还在跑时，startTunnel 直接 `return tunnel.url` 复用旧隧道，
+  // 于是「设置显示 frp，实际跑的还是 cloudflared 命名隧道」——用户拿 frp 地址访问当然不通。
+  const internals = stubInternals();
+  let mode = 'named';
+  const kills = [];
+  internals.startNamedTunnel = async () => ({ url: 'https://x', kill: () => kills.push('named'), onExit: () => () => {} });
+  internals.startFrpTunnel = async (opts) => ({
+    url: `http://${opts.server}:${opts.remotePort}`, kill: () => kills.push('frp'), onExit: () => () => {},
+  });
+  const service = createPocketService({
+    dshPort: 3080,
+    port: 3081,
+    internals,
+    getTunnelConfig: () => (mode === 'named'
+      ? { mode: 'named', token: 't', hostname: 'x.example.com' }
+      : { mode: 'frp', token: 't', server: '1.2.3.4', serverPort: 7000, remotePort: 60012, tls: true }),
+  });
+  await service.startProxy();
+  assert.equal(await service.startTunnel(), 'https://x.example.com', '先起命名隧道');
+  assert.equal((await service.status()).tunnelActiveMode, 'named', '运行中的通道 = named');
+
+  mode = 'frp'; // 等价于设置页保存后再次点「开启公网访问」
+  assert.equal((await service.status()).tunnelActiveMode, 'named', '只改设置不会凭空换掉运行中的通道');
+  assert.equal(await service.startTunnel(), 'http://1.2.3.4:60012', '按新模式重开');
+  assert.deepEqual(kills, ['named'], '旧隧道被停掉，而不是复用');
+  const st = await service.status();
+  assert.equal(st.tunnelActiveMode, 'frp', '运行中的通道跟着切到 frp');
+  assert.equal(st.tunnelUrl, 'http://1.2.3.4:60012');
+  await service.dispose();
+});
+
+test('RPC tunnelSetConfig：公网开着时换通道立刻按新通道重开（「配置了 frp 却访问不了」回归）', async () => {
+  const internals = stubInternals();
+  const kills = [];
+  internals.startNamedTunnel = async () => ({ url: 'https://x', kill: () => kills.push('named'), onExit: () => () => {} });
+  internals.startFrpTunnel = async (opts) => ({
+    url: `http://${opts.server}:${opts.remotePort}`, kill: () => kills.push('frp'), onExit: () => () => {},
+  });
+  let cfg = { mode: 'named', token: 't', hostname: 'x.example.com' };
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals, getTunnelConfig: () => cfg });
+  const conn = fakeCtxConnection();
+  installPocketRpc({ connection: conn }, {
+    service,
+    setTunnelConfig: ({ mode, frp }) => {
+      if (mode === 'frp') {
+        cfg = { mode: 'frp', token: 't', server: frp?.server ?? '', serverPort: 7000, remotePort: frp?.remotePort ?? 60012, tls: true };
+      }
+    },
+    log: { error() {}, warn() {} },
+  });
+  await service.startProxy();
+
+  const t = await conn.handler(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true });
+  assert.equal(t.ok, true, '开启公网（命名隧道）');
+  assert.equal((await service.status()).tunnelActiveMode, 'named');
+
+  const r = await conn.handler(POCKET_ENDPOINTS.tunnelSetConfig, { mode: 'frp', frp: { server: '1.2.3.4', remotePort: 60012 } });
+  assert.equal(r.ok, true, '保存 frp 配置');
+  const st = await service.status();
+  assert.equal(st.tunnelActiveMode, 'frp', '运行中的通道立刻切到 frp，而不是继续跑旧隧道');
+  assert.equal(st.tunnelUrl, 'http://1.2.3.4:60012');
+  assert.deepEqual(kills, ['named'], '旧命名隧道被停掉');
+  await service.dispose();
+});
