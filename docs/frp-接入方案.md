@@ -118,3 +118,16 @@ allowPorts = [{ start = 18000, end = 18100 }]   # 建议：限制可映射端口
   HTTPS（frps ACME），届时 URL 从 `http://IP:端口` 变成 `https://域名`。
 - 多代理（同时暴露 DSH 与其它本地服务）。
 - frps 侧的连接状态面板（插件内显示 frpc 的 run id / 在线时长）。
+
+## QUIC 传输协议（可选，抗晚高峰丢包）
+
+- 新设置 `frpProtocol`：`'tcp'`（默认）| `'quic'`。设置页 frp 表单里是「传输协议」下拉框；
+  选 quic 时不再显示 TLS 勾选（QUIC 自带 TLS，再开会冲突）。
+- **服务端要求**：frps.toml 加 `quicBindPort = 7000`（**必须等于 `bindPort`**：frpc 只用
+  `serverPort` 拨号，QUIC 与 TCP 共用同一个端口号、不同协议）；docker-compose.yml 加
+  `- "7000:7000/udp"`，OCI 安全列表放行 UDP 7000。少一处 frpc 就停在 `try to connect to server...`。
+- 生成 frpc.toml 时 `transport.*` 必须排在 `[[proxies]]` **之前**：写在后面会被 TOML 归进 proxy 表，
+  frpc 报 `unmarshal ProxyConfig error: json: unknown field "protocol"`（实测）。评测语法用 `frpc verify -c <file>`。
+- 实测（2,242,590 B 原始载荷，服务器本机 curl 经 frps 转发）：tcp+tls 0.632s / 3.55 MB/s，
+  quic 0.803s / 2.79 MB/s；gzip 后 43,621 B 两者都是 0.180s。**链路好时 TCP 更快**，QUIC 的价值在丢包时（晚高峰）。
+- 不提供 kcp：frp 里属遗留协议，且 frps 的 `kcpBindPort` 会与 `quicBindPort` 抢同一个 UDP 端口。
