@@ -1969,12 +1969,16 @@ var zh2 = {
   "namedNeedCfg": "\u8BF7\u5148\u586B\u5199\u56FA\u5B9A\u57DF\u540D\u4E0E Tunnel Token",
   "namedRunningHint": "\u56FA\u5B9A\u57DF\u540D\uFF08Cloudflare \u547D\u540D\u96A7\u9053\uFF09\u2014\u2014\u5730\u5740\u4E0D\u968F\u91CD\u542F\u53D8\u5316",
   "namedTakeEffect": "\u5DF2\u4FDD\u5B58\u56FA\u5B9A\u57DF\u540D\u914D\u7F6E\u2014\u2014\u9700\u5173\u95ED\u5E76\u91CD\u65B0\u5F00\u542F\u516C\u7F51\u8BBF\u95EE\u540E\u751F\u6548",
-  "frpSummary": "\u81EA\u5EFA frp\uFF1A{server}:{port} \xB7 Token {token}",
+  "frpSummary": "\u81EA\u5EFA frp\uFF1A{server}:{port} \xB7 {protocol} \xB7 Token {token}",
   "frpServerLabel": "\u670D\u52A1\u5668\uFF08frps \u5730\u5740\uFF09\uFF1A",
   "frpServerPortLabel": "frps \u7AEF\u53E3\uFF1A",
   "frpRemotePortLabel": "\u8FDC\u7A0B\u7AEF\u53E3\uFF1A",
   "frpTokenLabel": "frp Token\uFF08\u7559\u7A7A = \u4FDD\u6301\u4E0D\u53D8\uFF09\uFF1A",
   "frpTlsLabel": "TLS\uFF08\u52A0\u5BC6 frpc\u2192frps \u8FD9\u4E00\u8DF3\uFF09",
+  "frpProtocolLabel": "\u4F20\u8F93\u534F\u8BAE\uFF1A",
+  "frpProto_tcp": "TCP\uFF08\u9ED8\u8BA4\uFF0C\u94FE\u8DEF\u597D\u65F6\u6700\u5FEB\uFF09",
+  "frpProto_quic": "QUIC\uFF08\u6297\u4E22\u5305\uFF0C\u665A\u9AD8\u5CF0\u66F4\u7A33\uFF09",
+  "frpProtocolHint": "QUIC/KCP \u81EA\u5E26\u52A0\u5BC6\uFF08\u4E0D\u518D\u5355\u72EC\u5F00 TLS\uFF09\uFF1B\u9700\u670D\u52A1\u5668\u7AEF frps \u4E5F\u5F00\u4E86 quicBindPort\u3002",
   "frpHow": "\u63D2\u4EF6\u81EA\u52A8\u4E0B\u8F7D frpc \u5E76\u8FDE\u5230\u4F60\u81EA\u5DF1\u7684 frps\uFF0C\u7528 TCP \u628A\u672C\u673A\u4EE3\u7406\u7AEF\u53E3\u8F6C\u53D1\u51FA\u53BB\u3002\u5730\u5740\u56FA\u5B9A\u4E3A http://<\u670D\u52A1\u5668>:<\u8FDC\u7A0B\u7AEF\u53E3>\uFF0C\u670D\u52A1\u5668\u9632\u706B\u5899/\u5B89\u5168\u7EC4\u8981\u653E\u884C\u8BE5\u7AEF\u53E3\u3002\u6D4F\u89C8\u5668\u5230 frps \u662F\u660E\u6587 HTTP\uFF0C\u52A1\u5FC5\u8BBE\u7F6E\u81EA\u5B9A\u4E49\u5F3A\u5BC6\u7801\u3002",
   "frpSecurity": "\u81EA\u5EFA frp \u7684\u5730\u5740\u56FA\u5B9A\u4E14\u957F\u671F\u5728\u7EBF\u3001\u6BD4\u968F\u673A\u57DF\u540D\u66F4\u5BB9\u6613\u88AB\u626B\u63CF\uFF1A\u8BF7\u8BBE\u7F6E\u81EA\u5B9A\u4E49\u5F3A\u5BC6\u7801\uFF08\u672C\u6A21\u5F0F\u516C\u7F51\u5BC6\u7801\u9ED8\u8BA4\u4E0D\u968F\u91CD\u542F\u8F6E\u6362\uFF09\u3002",
   "frpNeedCfg": "\u8BF7\u5148\u586B\u5199 frps \u5730\u5740\u4E0E\u8FDC\u7A0B\u7AEF\u53E3",
@@ -2079,12 +2083,16 @@ var en2 = {
   "namedNeedCfg": "Set the fixed domain and Tunnel Token first",
   "namedRunningHint": "Fixed domain (Cloudflare named tunnel) \u2014 the URL no longer changes on restart",
   "namedTakeEffect": "Fixed-domain config saved \u2014 turn public access off and on again to take effect",
-  "frpSummary": "Self-hosted frp: {server}:{port} \xB7 Token {token}",
+  "frpSummary": "Self-hosted frp: {server}:{port} \xB7 {protocol} \xB7 Token {token}",
   "frpServerLabel": "Server (frps address):",
   "frpServerPortLabel": "frps port:",
   "frpRemotePortLabel": "Remote port:",
   "frpTokenLabel": "frp token (blank = keep current):",
   "frpTlsLabel": "TLS (encrypts the frpc\u2192frps hop)",
+  "frpProtocolLabel": "Transport protocol:",
+  "frpProto_tcp": "TCP (default, fastest on a good link)",
+  "frpProto_quic": "QUIC (loss-resistant, steadier at peak hours)",
+  "frpProtocolHint": "QUIC/KCP encrypt on their own (no separate TLS); the server-side frps must also have quicBindPort enabled.",
   "frpHow": "The plugin downloads frpc automatically and connects to your own frps, forwarding the local proxy port over TCP. The address is fixed at http://<server>:<remote-port>; open that port in the server firewall/security group. Browser\u2192frps is plain HTTP, so set a strong custom PIN.",
   "frpSecurity": "A self-hosted frp address is fixed and long-lived, so it is easier to scan than a random URL \u2014 set a strong custom PIN (the public PIN is not rotated on restart in this mode).",
   "frpNeedCfg": "Set the frps address and remote port first",
@@ -2308,7 +2316,8 @@ function PocketSettingsTab({ rpcCall, t }) {
           server: tunnelCfg?.server ?? "",
           serverPort: Number(tunnelCfg?.serverPort) || 7e3,
           remotePort: Number(tunnelCfg?.remotePort) || 60012,
-          tls: tunnelCfg?.tls !== false
+          tls: tunnelCfg?.tls !== false,
+          protocol: tunnelCfg?.protocol || "tcp"
         }
       }));
       setTunnelCfg(null);
@@ -2629,7 +2638,7 @@ function PocketSettingsTab({ rpcCall, t }) {
             { style: { display: "inline-flex", gap: 6 } },
             (0, import_react2.createElement)("button", { style: modeBtnStyle(!namedActive && !frpActive), onClick: namedMode || frpMode ? switchToQuick : tunnelCfg ? () => setTunnelCfg(null) : void 0 }, t("modeQuick")),
             (0, import_react2.createElement)("button", { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(namedEditing ? null : { kind: "named", hostname: tunnelModeView.hostname ?? "", token: "", err: null }) }, t("modeNamed")),
-            (0, import_react2.createElement)("button", { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: "", err: null }) }, t("modeFrp"))
+            (0, import_react2.createElement)("button", { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, protocol: frpView?.protocol ?? "tcp", token: "", err: null }) }, t("modeFrp"))
           ),
           (0, import_react2.createElement)(
             "div",
@@ -2694,8 +2703,8 @@ function PocketSettingsTab({ rpcCall, t }) {
             frpMode && !frpEditing ? (0, import_react2.createElement)(
               "div",
               { style: { ...styles.muted } },
-              fmt(t, "frpSummary", { server: frpView?.server || "\u2014", port: frpView?.remotePort ?? "\u2014", token: frpView?.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }),
-              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: "", err: null }) }, t("namedEdit")),
+              fmt(t, "frpSummary", { server: frpView?.server || "\u2014", port: frpView?.remotePort ?? "\u2014", protocol: t("frpProto_" + (frpView?.protocol ?? "tcp")), token: frpView?.tokenSet ? t("namedTokenSet") : t("namedTokenMissing") }),
+              (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: "frp", server: frpView?.server ?? "", serverPort: frpView?.serverPort ?? 7e3, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, protocol: frpView?.protocol ?? "tcp", token: "", err: null }) }, t("namedEdit")),
               (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("frpHow")),
               !frpView?.server || !frpView?.remotePort ? (0, import_react2.createElement)("div", { style: { marginTop: 2, color: "var(--dsw-alias-state-error-primary,#dc2626)" } }, t("frpNeedCfg")) : null
             ) : null,
@@ -2757,11 +2766,27 @@ function PocketSettingsTab({ rpcCall, t }) {
                 })
               ),
               (0, import_react2.createElement)(
+                "div",
+                { style: { marginTop: 6 } },
+                t("frpProtocolLabel"),
+                (0, import_react2.createElement)(
+                  "select",
+                  {
+                    style: { ...frpInput, width: 220 },
+                    value: tunnelCfg.protocol ?? "tcp",
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, protocol: e.target.value }))
+                  },
+                  (0, import_react2.createElement)("option", { value: "tcp" }, t("frpProto_tcp")),
+                  (0, import_react2.createElement)("option", { value: "quic" }, t("frpProto_quic"))
+                )
+              ),
+              (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 4 } }, t("frpProtocolHint")),
+              (tunnelCfg.protocol ?? "tcp") === "tcp" ? (0, import_react2.createElement)(
                 "label",
                 { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 8 } },
                 (0, import_react2.createElement)("input", { type: "checkbox", checked: tunnelCfg.tls !== false, onChange: (e) => setTunnelCfg((c) => ({ ...c, tls: e.target.checked })) }),
                 t("frpTlsLabel")
-              ),
+              ) : null,
               (0, import_react2.createElement)(
                 "div",
                 { style: { marginTop: 6, display: "flex", gap: 8 } },

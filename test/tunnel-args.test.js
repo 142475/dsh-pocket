@@ -112,6 +112,22 @@ test('frpConfigToml：无 token 不写 auth 段；TLS 关闭不写 transport 段
   assert.ok(!toml.includes('transport.tls'), 'TLS 关闭不写 transport.tls');
 });
 
+test('frpConfigToml：protocol=quic 写 transport.protocol，且必须在 [[proxies]] 之前', async () => {
+  const { frpConfigToml } = await import('../lib/tunnel.mjs');
+  for (const proto of ['quic']) {
+    const toml = frpConfigToml({ server: '158.101.29.160', serverPort: 7000, remotePort: 60012, localPort: 3081, tls: true, protocol: proto });
+    assert.match(toml, new RegExp(`transport\\.protocol = "${proto}"`), `${proto} 协议`);
+    assert.ok(!toml.includes('transport.tls'), `${proto} 自带加密，不再写 transport.tls`);
+    // 实测坑：transport.* 排在 [[proxies]] 之后会被 TOML 归进 proxy 表，
+    // frpc 报 `unmarshal ProxyConfig error: json: unknown field "protocol"`。
+    assert.ok(toml.indexOf('transport.protocol') < toml.indexOf('[[proxies]]'), 'transport 段必须在 [[proxies]] 之前');
+  }
+  // 默认（tcp）不受影响：仍然只写 TLS
+  const def = frpConfigToml({ server: 's', remotePort: 60012, localPort: 3081, tls: true });
+  assert.ok(!def.includes('transport.protocol'), '默认 tcp 不写 protocol');
+  assert.match(def, /transport\.tls\.enable = true/, '默认 tcp 仍写 TLS');
+});
+
 test('frpAssets：按平台给出官方发布资产名（windows 是 zip，其余 tar.gz）', async () => {
   const { frpAssets } = await import('../lib/tunnel.mjs');
   const assets = frpAssets('v0.71.0');

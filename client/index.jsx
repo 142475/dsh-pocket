@@ -243,6 +243,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           serverPort: Number(tunnelCfg?.serverPort) || 7000,
           remotePort: Number(tunnelCfg?.remotePort) || 60012,
           tls: tunnelCfg?.tls !== false,
+          protocol: tunnelCfg?.protocol || 'tcp',
         },
       }));
       setTunnelCfg(null);
@@ -546,7 +547,7 @@ function PocketSettingsTab({ rpcCall, t }) {
             h('span', { style: { display: 'inline-flex', gap: 6 } },
               h('button', { style: modeBtnStyle(!namedActive && !frpActive), onClick: namedMode || frpMode ? switchToQuick : (tunnelCfg ? () => setTunnelCfg(null) : undefined) }, t('modeQuick')),
               h('button', { style: modeBtnStyle(namedActive), onClick: () => setTunnelCfg(namedEditing ? null : { kind: 'named', hostname: tunnelModeView.hostname ?? '', token: '', err: null }) }, t('modeNamed')),
-              h('button', { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: '', err: null }) }, t('modeFrp')),
+              h('button', { style: modeBtnStyle(frpActive), onClick: () => setTunnelCfg(frpEditing ? null : { kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, protocol: frpView?.protocol ?? 'tcp', token: '', err: null }) }, t('modeFrp')),
             ),
             h('div', { style: { marginTop: 6 } },
               // 刚保存固定地址模式但当前连接仍是随机域名：需关闭后重新开启才生效
@@ -591,8 +592,8 @@ function PocketSettingsTab({ rpcCall, t }) {
               ) : null,
               // 自建 frp：已保存摘要 + 修改入口（非编辑态）
               frpMode && !frpEditing ? h('div', { style: { ...styles.muted } },
-                fmt(t, 'frpSummary', { server: frpView?.server || '—', port: frpView?.remotePort ?? '—', token: frpView?.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }),
-                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, token: '', err: null }) }, t('namedEdit')),
+                fmt(t, 'frpSummary', { server: frpView?.server || '—', port: frpView?.remotePort ?? '—', protocol: t('frpProto_' + (frpView?.protocol ?? 'tcp')), token: frpView?.tokenSet ? t('namedTokenSet') : t('namedTokenMissing') }),
+                h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setTunnelCfg({ kind: 'frp', server: frpView?.server ?? '', serverPort: frpView?.serverPort ?? 7000, remotePort: frpView?.remotePort ?? 60012, tls: frpView?.tls !== false, protocol: frpView?.protocol ?? 'tcp', token: '', err: null }) }, t('namedEdit')),
                 h('div', { style: { ...styles.muted, marginTop: 4 } }, t('frpHow')),
                 !frpView?.server || !frpView?.remotePort ? h('div', { style: { marginTop: 2, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('frpNeedCfg')) : null,
               ) : null,
@@ -637,10 +638,24 @@ function PocketSettingsTab({ rpcCall, t }) {
                     onKeyDown: (e) => { if (e.key === 'Enter') saveFrpTunnel(); if (e.key === 'Escape') setTunnelCfg(null); },
                   }),
                 ),
-                h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
-                  h('input', { type: 'checkbox', checked: tunnelCfg.tls !== false, onChange: (e) => setTunnelCfg((c) => ({ ...c, tls: e.target.checked })) }),
-                  t('frpTlsLabel'),
+                h('div', { style: { marginTop: 6 } },
+                  t('frpProtocolLabel'),
+                  h('select', {
+                    style: { ...frpInput, width: 220 },
+                    value: tunnelCfg.protocol ?? 'tcp',
+                    onChange: (e) => setTunnelCfg((c) => ({ ...c, protocol: e.target.value })),
+                  },
+                    h('option', { value: 'tcp' }, t('frpProto_tcp')),
+                    h('option', { value: 'quic' }, t('frpProto_quic')),
+                  ),
                 ),
+                h('div', { style: { ...styles.muted, marginTop: 4 } }, t('frpProtocolHint')),
+                (tunnelCfg.protocol ?? 'tcp') === 'tcp'
+                  ? h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 } },
+                    h('input', { type: 'checkbox', checked: tunnelCfg.tls !== false, onChange: (e) => setTunnelCfg((c) => ({ ...c, tls: e.target.checked })) }),
+                    t('frpTlsLabel'),
+                  )
+                  : null,
                 h('div', { style: { marginTop: 6, display: 'flex', gap: 8 } },
                   h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: saveFrpTunnel }, t('save')),
                   h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: () => setTunnelCfg(null) }, t('cancel')),
