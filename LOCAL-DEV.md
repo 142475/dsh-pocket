@@ -32,7 +32,7 @@ ls -l dsh-pocket
 
 ```sh
 node client/build.mjs     # 只改后端可跳过
-npm test                  # 建议顺手跑一遍（当前 109 个用例）
+npm test                  # 建议顺手跑一遍（当前 200 个用例）
 ```
 
 ### 重启 dsh web
@@ -97,6 +97,9 @@ ls -l ~/.dsh/profiles/web/node_modules/dsh-pocket
 - 本地仓库需要装过依赖（`npm install`），否则 `lib/` 用到的 `cordis` / `cosmokit` 等解析不到，插件会静默加载失败。
 - 改完 `client/` 忘了打包，界面不会变（dsh web 加载的是 `client/client.js` 产物，不是 `index.jsx` 源码）。
 - 电脑重启后自己正常启动 dsh web 即可，软链是持久的，仍然加载本地代码。
+- **Windows 上会有 3 个用例显示 `skipped`（不是失败）**，套件整体仍 `exit 0`：
+  - `download.test.js` 的「Linux 上丢弃 Homebrew bottle 坏缓存」：该分支本身只存在于 Linux，其它平台会走去下载 cloudflared，无外网时四个镜像轮流超时把用例拖到 60s 超时；
+  - `tunnel-args.test.js` 的两个 `--no-autoupdate` 位置用例：假 cloudflared 是带 shebang 的 JS，靠「无扩展名直接执行」跑起来，Windows 的 CreateProcess 不补 PATHEXT，必 ENOENT。同一回归由同文件里的 `--no-autoupdate 位置契约（跨平台源码断言）` 兜住。
 
 ## 常见问题
 

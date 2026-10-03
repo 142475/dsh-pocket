@@ -35,7 +35,14 @@ function withFakeBin(bin, fn) {
   });
 }
 
-test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', async () => {
+// 假 cloudflared 是一段带 shebang 的 JS，靠 `cloudflared`（无扩展名）直接执行——
+// 这是 POSIX 行为：Windows 的 CreateProcess 不会补 PATHEXT，spawn 无扩展名文件必 ENOENT。
+// 所以两个 spawn 用例在 Windows 上跳过，同一回归由下面的源码契约用例跨平台兜住。
+const SPAWN_UNSUPPORTED = process.platform === 'win32'
+  ? 'Windows 无法 spawn 无扩展名的假 cloudflared；同回归由源码契约用例覆盖'
+  : false;
+
+test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', { skip: SPAWN_UNSUPPORTED }, async () => {
   const { bin, record, dir } = await makeFakeCloudflared();
   try {
     await withFakeBin(bin, async () => {
@@ -53,7 +60,7 @@ test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', asy
   }
 });
 
-test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 run）', async () => {
+test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 run）', { skip: SPAWN_UNSUPPORTED }, async () => {
   const { bin, record, dir } = await makeFakeCloudflared();
   try {
     await withFakeBin(bin, async () => {
@@ -136,4 +143,15 @@ test('frpAssets：按平台给出官方发布资产名（windows 是 zip，其�
   assert.match(name, /^frp_0\.71\.0_(windows|darwin|linux)_(amd64|arm64|386|arm)\.(zip|tar\.gz)$/, `资产名合法：${name}`);
   if (process.platform === 'win32') assert.ok(name.endsWith('.zip'), 'Windows 资产是 zip');
   else assert.ok(name.endsWith('.tar.gz'), '类 Unix 资产是 tar.gz');
+});
+
+// 跨平台兜底（issue #78）：Windows 上跑不了上面两个 spawn 用例，
+// 但「--no-autoupdate 必须紧邻并位于 tunnel 子命令之前」与平台无关，直接锁源码契约。
+test('issue #78: --no-autoupdate 位置契约（跨平台源码断言）', async () => {
+  const src = await readFile(new URL('../lib/tunnel.mjs', import.meta.url), 'utf8');
+  const calls = (src.match(/spawn\(bin, \[[^\]]*\]/g) ?? []).filter((c) => c.includes("'tunnel'"));
+  assert.equal(calls.length, 2, `tunnel.mjs 应有快速/命名两处隧道 spawn，实得 ${calls.length} 处`);
+  for (const call of calls) {
+    assert.match(call, /\['--no-autoupdate', 'tunnel'/, `--no-autoupdate 必须排在最前：${call}`);
+  }
 });
