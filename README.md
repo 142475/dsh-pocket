@@ -56,6 +56,7 @@ DSH Pocket 就是干这个的：**装上它，手机扫个码，就能实时看�
 | 🧭 可选右边栏           | 手机端显示原生右边栏入口；普通手机可在设置中关闭以保持紧凑，折叠屏展开后可更方便地同时使用终端底栏和右边栏                                                                         |
 | 📁 文件浏览             | 移动端「文件浏览」入口需要宿主提供 explorer 面板（dsh-web-ui 组件）；官方 DSH 未内置时入口自动隐藏，不会出现"点了没反应"                                                           |
 | 🗜️ 传输压缩             | 大 JSON 响应自动 gzip/brotli（长会话 17MB → ~1MB，brotli 质量 6：快且省流量），手机加载更快、更省流量                                                                              |
+| 🗂️ 静态资源缓存         | 前端 JS/CSS/图片/字体补 `cache-control`（内容哈希产物 `immutable` 一年，其余一天）：首屏资源**只在首次下载**。DSH 核心的静态服务不发光缓存头，不补的话经隧道/局域网每次打开都要重下数百 KB~数 MB |
 | 🔁 隧道自动恢复         | DSH 重启后自动重新拉起之前开着的公网隧道，**开关状态持久化**（记的是开关意图，开启失败也记住），开机时首次失败会自动重试，无需手动重开                                |
 | 🧩 零依赖安装           | 一个 npm 包、一个设置页，没有核心/适配器要分开装；无需账号、无需服务器                                                                                                             |
 
@@ -202,7 +203,7 @@ npx @deepseek-ai/dsh web
 | `lib/index.js`       | 插件入口：自动起代理 + 注册 RPC + 访问密码管理（公网 8 位每次开启变新；局域网独立 8 位可手动刷新/开关）+ 局域网访问总开关 + 桌面端环境适配                                         |
 | `lib/settings.mjs`   | 设置持久化：局域网访问总开关（默认开启）+ 局域网密码开关（默认开启）存 `$DSH_HOME/dsh-pocket/settings.json`                                                                        |
 | `lib/service.mjs`    | 服务：代理生命周期（端口自适应）、公网隧道（自动恢复）、状态快照（含二维码）                                                                                                       |
-| `lib/proxy.mjs`      | 改头反向代理：Host/Origin → loopback，HTTP + WebSocket 透传 + polyfill 注入 + gzip/brotli 压缩 + 按 Host 区分的访问令牌认证（公网必验；局域网按开关）+ 局域网关闭时拦截局域网 Host |
+| `lib/proxy.mjs`      | 改头反向代理：Host/Origin → loopback，HTTP + WebSocket 透传 + polyfill 注入 + gzip/brotli 压缩 + 静态资源缓存头 + 按 Host 区分的访问令牌认证（公网必验；局域网按开关）+ 局域网关闭时拦截局域网 Host |
 | `lib/tunnel.mjs`     | cloudflared：多镜像源下载（清华优先）/自适应多线程/启动/解析公网 URL（HTTP/2）                                                                                                     |
 | `lib/web-rpc.js`     | loopback RPC：`status` / `tunnel.start` / `tunnel.stop` / `lan.setEnabled` / `version` / `update` / `restart`                                                                      |
 | `client/`            | 设置页「手机访问」+ 移动端适配（dsh-web-mobile 移植）                                                                                                                              |
