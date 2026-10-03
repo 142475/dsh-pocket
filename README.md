@@ -196,6 +196,31 @@ npx @deepseek-ai/dsh web
 2. 挂代理（系统代理/Clash 等）后重新点「开启公网访问」
 3. 手动下载二进制放到 `$DSH_HOME/dsh-pocket/bin/` 目录（`$DSH_HOME` 一般是 `~/.dsh`，Windows 是 `%USERPROFILE%\.dsh`；文件名用 `cloudflared`（Windows 加 `.exe`）或发布资产名均可，插件都认）
 
+## 🗂 静态资源缓存（首屏只下一次）
+
+DSH 核心的静态服务**不发任何缓存头**（`@deepseek-ai/dsh-host-frontend-static` 的 `serveStatic()` 只写 `content-type`），
+而 `/assets/*` 是 vite 内容哈希命名（`index-5SrrfWpU.js`）—— 本该 immutable，结果每次刷新都重下约 474KB。
+代理层补上（`withStaticCacheHeaders`，见 `lib/proxy.mjs`）：
+
+| 请求                                                                                | 响应头                                              |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `/assets/index-<hash>.js`、`/assets/vendor-<hash>.{js,css}`（哈希命名或带 `?rev=`/`?v=`） | `cache-control: private, max-age=31536000, immutable` |
+| `/favicon.svg`、`/manifest.webmanifest` 等 dist 根下的静态文件                       | `cache-control: private, max-age=86400`             |
+| `/`（注入过的 HTML）、`/api/*`、工作区里的文件                                       | 不动（HTML 仍是 `no-store`）                        |
+
+只对 `GET/HEAD` + `200` + 上游**本来没有** `cache-control`/`expires` 的响应生效，白名单以外的路径一律不碰。
+用 `private` 而不是 `public`：这个入口是带密码的私人代理。
+
+**怎么验证生效**（要带 cookie，不带的话上游回 401，看不到资源头）：
+
+```sh
+TOKEN=$(cat ~/.dsh/dsh-pocket/token-lan)   # 访问 127.0.0.1 走局域网密码
+curl -c jar -L "http://127.0.0.1:3081/?token=$TOKEN"
+curl -b jar -D - -o /dev/null http://127.0.0.1:3081/assets/index-5SrrfWpU.js | grep -i cache-control
+```
+
+改完 `lib/` 要**重启 DSH**（代理跑在宿主进程里）才生效；重启后第一次仍会下一次，之后走浏览器缓存。
+
 ## 🗂 架构（单包）
 
 | 文件                 | 说明                                                                                                                                                                               |
@@ -214,7 +239,7 @@ npx @deepseek-ai/dsh web
 ```sh
 npm install
 node client/build.mjs   # 改 client/ 后重新打包
-npm test                # 代理 / 认证 / 压缩 / 隧道 / 服务 / RPC / 设置（109 测试）
+npm test                # 代理 / 认证 / 压缩 / 缓存 / 隧道 / 服务 / RPC / 设置（200 测试，Windows 上 3 个平台相关用例会 skipped）
 ```
 
 **改完想在本机先试？** 不用发版：把插件换成指向本地仓库的软链，重启 dsh web 就是本地代码。完整步骤（含怎么换回 npm 官方版本）见 [LOCAL-DEV.md](./LOCAL-DEV.md)。
