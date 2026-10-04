@@ -633,6 +633,13 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   const sc = (r4.headers['set-cookie'] || []).join(';');
   assert.ok(sc.includes('dsh_pocket_token=' + TOKEN), '种 HttpOnly cookie');
   assert.ok(sc.includes('HttpOnly'), 'HttpOnly');
+  assert.ok(sc.includes('dsh_pocket_pin=' + TOKEN), '记住这次成功的 PIN');
+  assert.ok(!r1.body.includes(`value="${TOKEN}"`), '没登录过就不预填');
+
+  // 4b) 只有「记住的 PIN」cookie（会话 cookie 已因 dsh web 重启失效）→ 登录页预填输入框
+  const r4b = await raw({ ...publicH, Cookie: 'dsh_pocket_pin=' + TOKEN });
+  assert.match(r4b.body, new RegExp(`name="token"[^>]*value="${TOKEN}"`), '登录页预填上次成功的 PIN');
+  assert.ok(r4b.body.includes('autocomplete="off"'), '关掉浏览器自动填充，免得覆盖预填值');
 
   // 5) 带 cookie → 放行
   const r5 = await raw({ Host: 'abc.trycloudflare.com', Accept: 'application/json', Cookie: 'dsh_pocket_token=' + TOKEN });
@@ -1410,6 +1417,7 @@ test('?token=<原始 PIN> 直达种 HttpOnly cookie，issue #35', async () => {
     const sc = Array.isArray(r1.setCookie) ? r1.setCookie.join(';') : String(r1.setCookie ?? '');
     assert.ok(sc.includes(`dsh_pocket_token=${hashed}`), `种 cookie 含哈希值（实得：${sc.slice(0, 200)}）`);
     assert.ok(sc.includes('HttpOnly'), 'HttpOnly 标记');
+    assert.ok(sc.includes(`dsh_pocket_pin=${TOKEN}`), '同一条路径也要记住 PIN，供下次登录页预填');
     assert.ok(sc.includes('Max-Age=2592000'), '30 天持久');
 
     // 2) 用刚种的 cookie 访问子资源：200（不再依赖 ?token=）
