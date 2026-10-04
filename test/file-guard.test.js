@@ -4,6 +4,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {
+  SELECTABLE_ROLES,
+  SELECTABLE_SELECTOR,
+  isSelectableRole,
+  looksLikeFilePath,
+} from '../client/mobile/fileGuard-rules.mjs';
 
 const src = readFileSync(new URL('../client/mobile/fileGuard.ts', import.meta.url), 'utf8');
 const apply = readFileSync(new URL('../client/mobile/mobile-apply.tsx', import.meta.url), 'utf8');
@@ -43,6 +49,41 @@ test('打包产物含守卫 + 复制按钮结构标记', () => {
   // 复制按钮：注入标记 + 经 RPC 读文件（data-mobile-nav-copy 标记已处理链接，避免重复注入）
   assert.ok(bundle.includes('copy-file'), '产物必须含复制按钮标记 data-mobile-nav="copy-file"');
   assert.ok(bundle.includes('data-mobile-nav-copy'), '产物必须用标记避免重复注入复制按钮');
+});
+
+test('可勾选控件（role=checkbox/radio…）不是文件链接：选项带路径文案时不被拦、不注入复制按钮', () => {
+  // 真凶场景：ask_user_question 的选项就是 <button role="checkbox|radio">，
+  // 文案/描述里带路径时会被当成文件链接 ⇒ 复选框点不动 + 旁边多一个「复制」按钮。
+  assert.equal(looksLikeFilePath('lib/proxy.mjs'), true, '纯路径文案本身仍算文件链接');
+  assert.equal(
+    looksLikeFilePath('选项说明：见 lib/proxy.mjs 的注释'),
+    true,
+    '文案里含路径也会命中（所以必须靠角色排除，而不是靠文案）',
+  );
+  for (const role of SELECTABLE_ROLES) {
+    assert.equal(isSelectableRole(role), true, role + ' 必须被排除');
+    assert.ok(SELECTABLE_SELECTOR.includes('[role="' + role + '"]'), role + ' 必须进选择器');
+  }
+  assert.equal(isSelectableRole('CHECKBOX'), true, '角色名大小写不敏感');
+  assert.equal(isSelectableRole('button'), false, '普通 button 仍是候选');
+  assert.equal(isSelectableRole(null), false, '没有 role 不是可勾选控件');
+  assert.ok(SELECTABLE_SELECTOR.startsWith('label,'), '<label> 包裹的复选框也要排除');
+});
+
+test('fileGuard 统一走 isFileLink（点击拦截 + 注入各一处），规则只留在 fileGuard-rules.mjs', () => {
+  assert.ok(src.includes("from './fileGuard-rules.mjs'"), '必须复用共享规则模块');
+  assert.ok(src.includes('isSelectableControl'), '必须有可勾选控件判定');
+  assert.ok(src.includes('el.closest(SELECTABLE_SELECTOR)'), '必须用 closest 排除选项行内部的元素');
+  assert.ok(!src.includes('function looksLikeFilePath'), '规则不能在本文件复制一份（两边会漂移）');
+  assert.equal((src.match(/!isFileLink\(/g) ?? []).length, 2, '点击拦截与复制按钮注入都必须用 isFileLink');
+});
+
+test('打包产物含可勾选控件排除逻辑', () => {
+  assert.ok(
+    bundle.includes('"checkbox"') && bundle.includes('"menuitemradio"'),
+    '产物必须含可勾选角色表——先跑 node client/build.mjs',
+  );
+  assert.ok(bundle.includes('el.closest(SELECTABLE_SELECTOR)'), '产物必须用选择器排除选项行内部的元素');
 });
 
 test('CSS 隐藏「添加工作区」图标 + 复制按钮样式（窄屏）', () => {

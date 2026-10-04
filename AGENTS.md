@@ -11,14 +11,16 @@ dsh-pocket：给 DeepSeek Harness 套一层带访问密码的代理（局域网 
 
 ```bash
 npm test                 # node --test 全量用例（改了 lib/ 或 test/ 必跑）
-node client/build.mjs    # 只有改了 client/index.jsx 才需要；产物 client/client.js 要一起提交
+node client/build.mjs    # 改了 client/**（含 mobile/*.ts(x)、*.mjs）就要跑；产物 client/client.js 必须一起提交
 ```
 
 端到端验证：起一个临时端口的小代理打到真实上游（别动用户正在用的 3080/3081），再 `curl -i` 看响应头 / 行为。
 
 ## 约定
 
-- 只改后端 `lib/*.mjs` 时不需要重构建前端产物。
+- 只改后端 `lib/*.mjs` 时不需要重构建前端产物；改 `client/**` 就必须重构建并提交 `client/client.js`。
+- client 侧的 DOM 判定规则抽成 `client/mobile/*-rules.mjs` 纯函数（先例：`fileGuard-rules.mjs`、`layout-mode.mjs`、`nav-targets.mjs`），单测直接 import；别把判定写死在 `.ts(x)` 里，那样只能做字符串断言。
+- 移动端靠 MutationObserver 往页面注入 UI（如 fileGuard 的「复制」按钮）时，**必须排除可勾选控件**：`ask_user_question` 的选项就是 `<button role="checkbox|radio">`（`dsh-client-ui-user-questions` 的 option 渲染），文案里带路径时会被当成文件链接 ⇒ 复选框点不动、旁边还多一个「复制」按钮。判定入口统一走 `isFileLink()`。
 - 远端：`origin` = 上游作者仓库 `shaobeichen/dsh-pocket`（**无推送权限**）；推自己的改动一律用 `fork` = `142475/dsh-pocket`。
 - 提交信息用中文，形如 `feat(proxy): …` / `fix(tunnel): …`。
 - `npm test` 必须全绿（`exit 0`）。本机 Windows 上会有 3 个用例显示 `skipped`，那是平台限制而非失败，原因写在 `LOCAL-DEV.md`。

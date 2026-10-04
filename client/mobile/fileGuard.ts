@@ -6,8 +6,14 @@
 // 另外隐藏「添加工作区」入口（手机上配工作区无意义）。
 // 移植自 dsh-web-mobile（MIT）。
 //
-// 识别方式：不依赖 dsh-web 的 hash 类名（每次构建都变），只认「文本像文件路径的
-// <button>/<a>」——文件链接按钮的文案就是路径（如 lib/proxy.mjs / /Users/.../x.ts）。
+// 识别规则见 fileGuard-rules.mjs（纯函数，可单测）；**可勾选控件（role=checkbox/radio…）
+// 也是 <button>，必须排除**，否则 ask_user_question 里带路径的选项会被拦成「文件链接」，
+// 表现为复选框点不动 + 旁边多一个「复制」按钮。
+import {
+  SELECTABLE_SELECTOR,
+  isSelectableRole,
+  looksLikeFilePath,
+} from './fileGuard-rules.mjs'
 
 /** 手机上点击文件时弹出的提示。 */
 const GUARD_MSG = '手机上无法直接打开电脑上的文件'
@@ -23,14 +29,15 @@ interface ReadFileResponse {
   error?: { message: string };
 }
 
-/** 文本是否像文件路径：绝对路径 / 相对路径 / 带扩展名的目录路径。 */
-function looksLikeFilePath(text: string | null): boolean {
-  const t = (text ?? '').trim()
-  if (t.length < 3 || t.length > 320) return false
-  if (/^(\/|~\/|\.\.?\/|[A-Za-z]:\\)/.test(t)) return true
-  if (/\/[\w.\-]+\.\w{1,12}$/.test(t)) return true
-  if (/[\w.\-]+\/[\w.\-]+\.\w{1,12}/.test(t)) return true
-  return false
+/** 可勾选控件（复选框/单选框/选项行/标签）——它们也是 <button>，但不是文件链接。 */
+function isSelectableControl(el: HTMLElement): boolean {
+  return isSelectableRole(el.getAttribute('role')) || el.closest(SELECTABLE_SELECTOR) !== null
+}
+
+/** 是不是一个「该被当作文件链接处理」的元素。 */
+function isFileLink(el: HTMLElement): boolean {
+  if (isSelectableControl(el)) return false
+  return looksLikeFilePath(el.textContent)
 }
 
 /** 写剪贴板：优先 navigator.clipboard，非安全上下文（局域网 http）回退 execCommand。 */
@@ -107,7 +114,7 @@ export function startFileGuard(
     if (target === null) return
     const el = target.closest('button, a') as HTMLElement | null
     if (el === null) return
-    if (!looksLikeFilePath(el.textContent)) return
+    if (!isFileLink(el)) return
     event.preventDefault()
     event.stopImmediatePropagation()
     showToast(GUARD_MSG)
@@ -122,7 +129,8 @@ export function startFileGuard(
     links.forEach((el) => {
       if (el.getAttribute('data-mobile-nav-copy') === '1') return
       const txt = (el.textContent ?? '').trim()
-      if (!looksLikeFilePath(txt)) return
+      if (txt === '') return
+      if (!isFileLink(el as HTMLElement)) return
       el.setAttribute('data-mobile-nav-copy', '1')
       const btn = document.createElement('button')
       btn.type = 'button'

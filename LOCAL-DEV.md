@@ -31,8 +31,8 @@ ls -l dsh-pocket
 | `client/**`（前端源码） | 先 `node client/build.mjs` 打包，再重启 dsh web |
 
 ```sh
-node client/build.mjs     # 只改后端可跳过
-npm test                  # 建议顺手跑一遍（当前 204 个用例）
+node client/build.mjs     # 改了 client/** 必跑（只改后端可跳过）
+npm test                  # 建议顺手跑一遍（当前 207 个用例）
 ```
 
 ### 重启 dsh web

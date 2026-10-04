@@ -407,10 +407,20 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
   ));
 }
 
-// client/mobile/fileGuard.ts
-var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
-var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
-var COPY_LABEL = "\u590D\u5236";
+// client/mobile/fileGuard-rules.mjs
+var SELECTABLE_ROLES = Object.freeze([
+  "checkbox",
+  "radio",
+  "switch",
+  "option",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "tab"
+]);
+var SELECTABLE_SELECTOR = "label," + SELECTABLE_ROLES.map((role) => `[role="${role}"]`).join(",");
+function isSelectableRole(role) {
+  return typeof role === "string" && SELECTABLE_ROLES.includes(role.toLowerCase());
+}
 function looksLikeFilePath(text) {
   const t = (text ?? "").trim();
   if (t.length < 3 || t.length > 320) return false;
@@ -418,6 +428,18 @@ function looksLikeFilePath(text) {
   if (/\/[\w.\-]+\.\w{1,12}$/.test(t)) return true;
   if (/[\w.\-]+\/[\w.\-]+\.\w{1,12}/.test(t)) return true;
   return false;
+}
+
+// client/mobile/fileGuard.ts
+var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
+var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
+var COPY_LABEL = "\u590D\u5236";
+function isSelectableControl(el) {
+  return isSelectableRole(el.getAttribute("role")) || el.closest(SELECTABLE_SELECTOR) !== null;
+}
+function isFileLink(el) {
+  if (isSelectableControl(el)) return false;
+  return looksLikeFilePath(el.textContent);
 }
 async function copyText(text) {
   try {
@@ -486,7 +508,7 @@ function startFileGuard(readFile) {
     if (target === null) return;
     const el = target.closest("button, a");
     if (el === null) return;
-    if (!looksLikeFilePath(el.textContent)) return;
+    if (!isFileLink(el)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     showToast(GUARD_MSG);
@@ -497,7 +519,8 @@ function startFileGuard(readFile) {
     links.forEach((el) => {
       if (el.getAttribute("data-mobile-nav-copy") === "1") return;
       const txt = (el.textContent ?? "").trim();
-      if (!looksLikeFilePath(txt)) return;
+      if (txt === "") return;
+      if (!isFileLink(el)) return;
       el.setAttribute("data-mobile-nav-copy", "1");
       const btn = document.createElement("button");
       btn.type = "button";
