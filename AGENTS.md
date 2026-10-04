@@ -21,6 +21,7 @@ node client/build.mjs    # 改了 client/**（含 mobile/*.ts(x)、*.mjs）就�
 - 只改后端 `lib/*.mjs` 时不需要重构建前端产物；改 `client/**` 就必须重构建并提交 `client/client.js`。
 - client 侧的 DOM 判定规则抽成 `client/mobile/*-rules.mjs` 纯函数（先例：`fileGuard-rules.mjs`、`layout-mode.mjs`、`nav-targets.mjs`），单测直接 import；别把判定写死在 `.ts(x)` 里，那样只能做字符串断言。
 - 移动端靠 MutationObserver 往页面注入 UI（如 fileGuard 的「复制」按钮）时，**必须排除可勾选控件**：`ask_user_question` 的选项就是 `<button role="checkbox|radio">`（`dsh-client-ui-user-questions` 的 option 渲染），文案里带路径时会被当成文件链接 ⇒ 复选框点不动、旁边还多一个「复制」按钮。判定入口统一走 `isFileLink()`。
+- 登录态相关：`TOKEN_COOKIE` 的值是 `cookieFor(pin, sessionKey)`，**sessionKey 随 dsh web 进程变化** ⇒ 宿主每次重启，手机端 cookie 都失效（issue #33 的既定设计，不是 bug）。为了不用重敲 PIN，登录成功（含 `?token=` 直达）会另种 `PIN_COOKIE`（`dsh_pocket_pin`，HttpOnly、30 天、**不参与鉴权**，只由服务端预填登录页输入框）；登录页预填值必须过 `escapeAttr()`，`autocomplete` 保持 `off`，否则浏览器自动填充会盖掉预填值。
 - 远端：`origin` = 上游作者仓库 `shaobeichen/dsh-pocket`（**无推送权限**）；推自己的改动一律用 `fork` = `142475/dsh-pocket`。
 - 提交信息用中文，形如 `feat(proxy): …` / `fix(tunnel): …`。
 - `npm test` 必须全绿（`exit 0`）。本机 Windows 上会有 3 个用例显示 `skipped`，那是平台限制而非失败，原因写在 `LOCAL-DEV.md`。
