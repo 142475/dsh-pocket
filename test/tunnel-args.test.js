@@ -110,6 +110,14 @@ test('frpConfigToml：生成 frpc.toml（服务器/端口/token/TLS/tcp 代理�
   assert.match(toml, /localIP = "127\.0\.0\.1"/, '只转发本机回环');
   assert.match(toml, /localPort = 3081/, '本地端口 = 代理端口');
   assert.match(toml, /remotePort = 60012/, '远程端口');
+  assert.match(toml, /transport\.useCompression = true/, '默认开隧道压缩（WS 里的会话 JSON/图片 base64 只能在这里压）');
+  assert.ok(toml.indexOf('transport.useCompression') > toml.indexOf('[[proxies]]'), '压缩是每代理选项，必须写在 [[proxies]] 表内（写到顶层 frpc 会 unknown field 启动失败）');
+});
+
+test('frpConfigToml：compress=false 不写 useCompression（frpc 0.71 实测该字段名合法，见 tunnel.mjs 注释）', async () => {
+  const { frpConfigToml } = await import('../lib/tunnel.mjs');
+  const toml = frpConfigToml({ server: 's', remotePort: 60012, localPort: 3081, compress: false });
+  assert.ok(!toml.includes('useCompression'), '关掉压缩不写该字段');
 });
 
 test('frpConfigToml：无 token 不写 auth 段；TLS 关闭不写 transport 段', async () => {

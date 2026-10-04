@@ -221,6 +221,26 @@ curl -b jar -D - -o /dev/null http://127.0.0.1:3081/assets/index-5SrrfWpU.js | g
 
 改完 `lib/` 要**重启 DSH**（代理跑在宿主进程里）才生效；重启后第一次仍会下一次，之后走浏览器缓存。
 
+## 📉 公网流量（自建隧道按流量计费时）
+
+首屏经公网隧道要下约 **6.5MB**（gzip 后），其中 96% 是 `/plugins/??…` 两个插件组合包。代理侧做了三件事：
+
+| 优化 | 做法 | 效果 |
+| --- | --- | --- |
+| 强制 brotli | `preferBrotli()`：客户端说支持 `br` 时，把发给上游的 `accept-encoding` 收窄成 `br` | 上游本会按浏览器默认头选 gzip；改 br 后大组合包 5.32MB → 4.83MB（省 ~9%） |
+| 隧道压缩 | `frpConfigToml({ compress })` 写 `[[proxies]] transport.useCompression = true` | frp 用 snappy 压隧道，HTTP 已 gzip/br 的无收益，**WS 里的会话 JSON 与图片 base64 是唯一能压的** |
+| 字节计量 | `GET /dsh-pocket-metrics`（`?reset=1` 清零） | 按 `static`/`api`/`html`/`other` 与方向出真实上线字节，用来判断优化有没有用 |
+
+`transport.useCompression` **必须写在 `[[proxies]]` 表里**（它是每代理的 `ProxyTransport`）；写到顶层 `transport` 会被 frpc 判 `json: unknown field "useCompression"` 直接启动失败。改配置后可以用 frpc 自己验：
+
+```sh
+frpc verify -c ~/.dsh/dsh-pocket/frpc.toml   # → syntax is ok
+```
+
+计量的口径：`http.out`/`ws.out` 是**回浏览器**的字节，`http.in`/`ws.in` 是**发往上游**的字节；都按压缩后的真实上线量算，`/dsh-pocket-metrics` 自己那次响应也算在内（`?reset=1` 之后立刻读会看到它自己那 100~200 字节）。
+
+**不做**的两项（评估过，收益/风险不划算）：图片改 HTTP 强缓存 —— pocket 的客户端半不渲染图片，聊天里的图片由 DSH 自己的 UI 经 WS 远程流拉取（`__DSH_TRANSPORT__`，本插件的 shim 恰恰把 HTTP 那条路关掉了），浏览器无从缓存，除非改 DSH 核心；手机端精简 boot 列表 —— 省的是首屏体积，但会静默砍掉插件 UI，宁可让用户自己少装插件。
+
 ## 🗂 架构（单包）
 
 | 文件                 | 说明                                                                                                                                                                               |
@@ -239,7 +259,7 @@ curl -b jar -D - -o /dev/null http://127.0.0.1:3081/assets/index-5SrrfWpU.js | g
 ```sh
 npm install
 node client/build.mjs   # 改 client/ 后重新打包
-npm test                # 代理 / 认证 / 压缩 / 缓存 / 隧道 / 服务 / RPC / 设置（200 测试，Windows 上 3 个平台相关用例会 skipped）
+npm test                # 代理 / 认证 / 压缩 / 缓存 / 隧道 / 服务 / RPC / 设置（204 测试，Windows 上 3 个平台相关用例会 skipped）
 ```
 
 **改完想在本机先试？** 不用发版：把插件换成指向本地仓库的软链，重启 dsh web 就是本地代码。完整步骤（含怎么换回 npm 官方版本）见 [LOCAL-DEV.md](./LOCAL-DEV.md)。
