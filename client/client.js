@@ -57,10 +57,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanSetEnabled: "lan.setEnabled",
   mobileRightbarSetEnabled: "mobile.rightbar.setEnabled",
   pinSetCustom: "pin.setCustom",
-  pocketReset: "pocket.reset",
-  // 移动端「复制文件内容」（issue #17）：手机经此 RPC 让主机读取文件正文，
-  // 再写入剪贴板——因为手机无法直接打开电脑上的文件。
-  fileRead: "pocket.fileRead"
+  pocketReset: "pocket.reset"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -433,7 +430,6 @@ function looksLikeFilePath(text) {
 // client/mobile/fileGuard.ts
 var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
 var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
-var COPY_LABEL = "\u590D\u5236";
 function isSelectableControl(el) {
   return isSelectableRole(el.getAttribute("role")) || el.closest(SELECTABLE_SELECTOR) !== null;
 }
@@ -441,31 +437,7 @@ function isFileLink(el) {
   if (isSelectableControl(el)) return false;
   return looksLikeFilePath(el.textContent);
 }
-async function copyText(text) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-  }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.top = "-9999px";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const okCopy = document.execCommand("copy");
-    ta.remove();
-    return okCopy;
-  } catch {
-    return false;
-  }
-}
-function startFileGuard(readFile) {
+function startFileGuard() {
   let toastEl = null;
   let toastTimer = null;
   const showToast = (text) => {
@@ -514,51 +486,6 @@ function startFileGuard(readFile) {
     showToast(GUARD_MSG);
   };
   document.addEventListener("click", onClick, true);
-  const injectCopyButtons = () => {
-    const links = document.querySelectorAll("button, a");
-    links.forEach((el) => {
-      if (el.getAttribute("data-mobile-nav-copy") === "1") return;
-      const txt = (el.textContent ?? "").trim();
-      if (txt === "") return;
-      if (!isFileLink(el)) return;
-      el.setAttribute("data-mobile-nav-copy", "1");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("data-mobile-nav", "copy-file");
-      btn.textContent = COPY_LABEL;
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const filePath = (el.textContent ?? "").trim();
-        btn.disabled = true;
-        btn.textContent = "\u2026";
-        try {
-          const res = await readFile(filePath);
-          if (!res?.ok) {
-            showToast(res?.error?.message ?? "\u590D\u5236\u5931\u8D25");
-            return;
-          }
-          const content = res.value?.content ?? "";
-          const copied = await copyText(content);
-          if (copied) {
-            const kb = Math.max(1, Math.round((res.value?.size ?? content.length) / 1024));
-            showToast(`\u5DF2\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF08${kb} KB\uFF09`);
-          } else {
-            showToast("\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9");
-          }
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : "\u590D\u5236\u5931\u8D25");
-        } finally {
-          btn.disabled = false;
-          btn.textContent = COPY_LABEL;
-        }
-      });
-      el.parentElement?.insertBefore(btn, el.nextSibling);
-    });
-  };
-  injectCopyButtons();
-  const copyObserver = new MutationObserver(() => injectCopyButtons());
-  copyObserver.observe(document.body, { childList: true, subtree: true });
   const hideWsEntries = () => {
     const checkOne = (node) => {
       if (node.nodeType !== 1) return;
@@ -586,7 +513,6 @@ function startFileGuard(readFile) {
   const disconnectWs = hideWsEntries();
   return () => {
     document.removeEventListener("click", onClick, true);
-    copyObserver.disconnect();
     disconnectWs();
     if (toastTimer !== null) window.clearTimeout(toastTimer);
     toastEl?.remove();
@@ -1522,37 +1448,6 @@ var MOBILE_CSS = `
   button[aria-label="Add workspace\u2026"] {
     display: none !important;
   }
-
-  /* ---------- \u6587\u4EF6\u94FE\u63A5\u65C1\u7684\u300C\u590D\u5236\u300D\u6309\u94AE\uFF08issue #17\uFF1A\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF09 ----------
-     \u6302\u5728\u5BF9\u8BDD\u91CC\u7684\u6587\u4EF6\u94FE\u63A5\uFF08<button>/<a>\uFF0C\u6587\u6848\u5373\u8DEF\u5F84\uFF09\u7D27\u90BB\u4F4D\u7F6E\uFF0C\u7531 fileGuard.ts
-     \u6CE8\u5165\u3002\u53EA\u5C4F\u5185\u53EF\u89C1\uFF1A\u684C\u9762\u7AEF\u4E0D\u6CE8\u5165\u3001\u4E0D\u663E\u793A\uFF1B\u8FD9\u91CC\u518D\u515C\u5E95\u4E00\u5C42\uFF0C\u907F\u514D\u4EFB\u4F55\u9057\u6F0F\u3002
-     \u6587\u4EF6\u94FE\u63A5\u591A\u4E3A inline\uFF0C\u6309\u94AE\u7528 inline-flex \u7D27\u8DDF\u5176\u540E\u5373\u53EF\u3002 */
-  [data-mobile-nav="copy-file"] {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    margin-left: 6px !important;
-    vertical-align: baseline !important;
-    height: 22px !important;
-    padding: 0 8px !important;
-    border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .14)) !important;
-    border-radius: 6px !important;
-    background: var(--dsw-alias-bg-layer-1, #fff) !important;
-    color: var(--dsw-alias-label-primary, inherit) !important;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    cursor: pointer !important;
-    -webkit-tap-highlight-color: transparent !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .12) !important;
-  }
-  [data-mobile-nav="copy-file"]:active {
-    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .06)) !important;
-  }
-  [data-mobile-nav="copy-file"][disabled] {
-    opacity: .55 !important;
-    cursor: default !important;
-  }
 }
 
 /* ---------- mobile: stop iOS Safari forced zoom on input focus ----------
@@ -1823,28 +1718,8 @@ function mobileApply(ctx) {
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
-    const getWorkspaceCwd = () => {
-      try {
-        const ws = ctx.get?.("workspaces") ?? ctx.workspaces;
-        const list = ws?.list;
-        const arr = Array.isArray(list) ? list : list && typeof list === "object" && "value" in list ? list.value : null;
-        if (Array.isArray(arr)) {
-          for (const w of arr) {
-            const c = w?.cwd ?? w?.root;
-            if (typeof c === "string" && c) return c;
-          }
-        }
-      } catch {
-      }
-      return "";
-    };
-    const readFile = (filePath) => ctx.connection.rpc.call(
-      POCKET_RPC_CHANNEL,
-      POCKET_ENDPOINTS.fileRead,
-      { path: filePath, cwd: getWorkspaceCwd() }
-    );
-    return startFileGuard(readFile);
-  }, "dsh-mobile-nav: file open guard + copy button + hide add-workspace (issue #17)");
+    return startFileGuard();
+  }, "dsh-mobile-nav: file open guard + hide add-workspace (issue #17)");
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };

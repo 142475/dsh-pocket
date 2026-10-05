@@ -2,13 +2,12 @@
 // workspaces.openPath(open <path>)，既打不开（文件在电脑上），又会抛
 // "path open failed". 这里做两件事：
 //   1) 捕获阶段拦截这类激活（点击 / 键盘），改为弹一个提示；
-//   2) 在每个文件链接旁注入一个「复制」按钮，点它经主机 RPC 读文件正文再写剪贴板。
-// 另外隐藏「添加工作区」入口（手机上配工作区无意义）。
+//   2) 隐藏「添加工作区」入口（手机上配工作区无意义）。
 // 移植自 dsh-web-mobile（MIT）。
 //
 // 识别规则见 fileGuard-rules.mjs（纯函数，可单测）；**可勾选控件（role=checkbox/radio…）
 // 也是 <button>，必须排除**，否则 ask_user_question 里带路径的选项会被拦成「文件链接」，
-// 表现为复选框点不动 + 旁边多一个「复制」按钮。
+// 表现为复选框点不动。
 import {
   SELECTABLE_SELECTOR,
   isSelectableRole,
@@ -19,15 +18,6 @@ import {
 const GUARD_MSG = '手机上无法直接打开电脑上的文件'
 /** 「添加工作区」入口的文案（随语言变化），两种都覆盖。 */
 const WS_LABELS = ['添加工作区', '添加工作区…', 'Add workspace', 'Add workspace…']
-/** 复制按钮文案。 */
-const COPY_LABEL = '复制'
-
-/** 主机 fileRead 回调返回结构（与 client/api.js 的 FileReadResult 对齐）。 */
-interface ReadFileResponse {
-  ok: boolean;
-  value?: { content: string; path: string; size: number };
-  error?: { message: string };
-}
 
 /** 可勾选控件（复选框/单选框/选项行/标签）——它们也是 <button>，但不是文件链接。 */
 function isSelectableControl(el: HTMLElement): boolean {
@@ -40,34 +30,7 @@ function isFileLink(el: HTMLElement): boolean {
   return looksLikeFilePath(el.textContent)
 }
 
-/** 写剪贴板：优先 navigator.clipboard，非安全上下文（局域网 http）回退 execCommand。 */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch { /* 回退 */ }
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.style.position = 'fixed'
-    ta.style.top = '-9999px'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    const okCopy = document.execCommand('copy')
-    ta.remove()
-    return okCopy
-  } catch {
-    return false
-  }
-}
-
-export function startFileGuard(
-  readFile: (path: string) => Promise<ReadFileResponse>,
-): () => void {
+export function startFileGuard(): () => void {
   // 轻量 toast：自包含，不依赖 dsh-pocket 面板的 React 状态。
   let toastEl: HTMLElement | null = null
   let toastTimer: number | null = null
@@ -121,55 +84,6 @@ export function startFileGuard(
   }
   document.addEventListener('click', onClick, true)
 
-  // 在文件链接旁注入「复制」按钮：点它经主机 RPC 读文件正文再写剪贴板。
-  // 用 data-mobile-nav-copy 标记已处理的链接，避免重复注入；React 重渲染会
-  // 产生新元素（无标记），MutationObserver 重新补上按钮。
-  const injectCopyButtons = (): void => {
-    const links = document.querySelectorAll('button, a')
-    links.forEach((el) => {
-      if (el.getAttribute('data-mobile-nav-copy') === '1') return
-      const txt = (el.textContent ?? '').trim()
-      if (txt === '') return
-      if (!isFileLink(el as HTMLElement)) return
-      el.setAttribute('data-mobile-nav-copy', '1')
-      const btn = document.createElement('button')
-      btn.type = 'button'
-      btn.setAttribute('data-mobile-nav', 'copy-file')
-      btn.textContent = COPY_LABEL
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        const filePath = (el.textContent ?? '').trim()
-        btn.disabled = true
-        btn.textContent = '…'
-        try {
-          const res = await readFile(filePath)
-          if (!res?.ok) {
-            showToast(res?.error?.message ?? '复制失败')
-            return
-          }
-          const content = res.value?.content ?? ''
-          const copied = await copyText(content)
-          if (copied) {
-            const kb = Math.max(1, Math.round((res.value?.size ?? content.length) / 1024))
-            showToast(`已复制文件内容（${kb} KB）`)
-          } else {
-            showToast('复制失败，请手动选择')
-          }
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : '复制失败')
-        } finally {
-          btn.disabled = false
-          btn.textContent = COPY_LABEL
-        }
-      })
-      el.parentElement?.insertBefore(btn, el.nextSibling)
-    })
-  }
-  injectCopyButtons()
-  const copyObserver = new MutationObserver(() => injectCopyButtons())
-  copyObserver.observe(document.body, { childList: true, subtree: true })
-
   // 隐藏「添加工作区」入口：图标按钮由 mobile.css.ts 按 aria-label 隐藏；
   // 下拉菜单里的文本项 CSS 选不到，这里按文案兜底（只在新增节点时检查，省开销）。
   const hideWsEntries = (): (() => void) => {
@@ -200,7 +114,6 @@ export function startFileGuard(
 
   return () => {
     document.removeEventListener('click', onClick, true)
-    copyObserver.disconnect()
     disconnectWs()
     if (toastTimer !== null) window.clearTimeout(toastTimer)
     toastEl?.remove()
