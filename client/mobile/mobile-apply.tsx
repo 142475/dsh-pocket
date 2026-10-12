@@ -13,7 +13,7 @@ import { resolveLayout, persistLayoutFromUrl } from './layout-mode.mjs'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Directory-drawer controls copy. */
-    'mobileNav': MobileNavKey
+    'pocketMobileNav': MobileNavKey
   }
 }
 
