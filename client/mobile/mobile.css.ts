@@ -844,9 +844,15 @@ export const MOBILE_CSS = `
      targeted). Layout: ONE fixed-height (28px) flex strip that scrolls
      horizontally — the full metrics stream stays reachable by swiping,
      the row never grows vertically, no ellipsis or fade, 12px gaps
-     between metric groups, a 2px scrollbar as the swipe affordance. */
+     between metric groups, a 2px scrollbar as the swipe affordance.
 
-  [data-mobile-nav="stats"] {
+     Opt-out: the strip is scoped under body:not([data-pocket-stats="off"])
+     so a skin/operator plugin can legally reclaim this 28px band by
+     setting document.body.dataset.pocketStats = 'off' (avoids the
+     !important weight war that let two footers print on top of each
+     other — issue #165). Default behavior is unchanged. */
+
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] {
     display: flex !important;
     flex-flow: row nowrap !important;
     align-items: center !important;
@@ -868,17 +874,17 @@ export const MOBILE_CSS = `
     line-height: 20px !important;
     font-size: 12px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar {
     height: 2px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-thumb {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar-thumb {
     background: var(--dsw-alias-label-tertiary, rgba(0, 0, 0, .3)) !important;
     border-radius: 2px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-track {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar-track {
     background: transparent !important;
   }
-  [data-mobile-nav="stats"] > * {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] > * {
     display: flex !important;
     flex: 0 0 auto !important;
     flex-flow: row nowrap !important;
@@ -890,10 +896,10 @@ export const MOBILE_CSS = `
     margin-right: 12px !important;
     padding: 0 !important;
   }
-  [data-mobile-nav="stats"] > *:last-child {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] > *:last-child {
     margin-right: 0 !important;
   }
-  [data-mobile-nav="stats"] * {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] * {
     white-space: nowrap !important;
   }
 

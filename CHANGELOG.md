@@ -1,3 +1,18 @@
+# [2.11.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.10.6...v2.11.0) (2026-10-12)
+
+
+### Bug Fixes
+
+* **docs:** 在 README 中添加 Trendshift badge ([ffe894e](https://github.com/shaobeichen/dsh-pocket/commit/ffe894e842867d4ef297e80d47011c6377d583e7))
+* **mobile:** avoid locale namespace clash with dsh-web-mobile and scope stats strip ([#162](https://github.com/shaobeichen/dsh-pocket/issues/162), [#165](https://github.com/shaobeichen/dsh-pocket/issues/165)) ([d917a77](https://github.com/shaobeichen/dsh-pocket/commit/d917a7760093693555d590b81fca54e29971dfb3))
+* **mobile:** restore right sidebar entry ([d2e0b46](https://github.com/shaobeichen/dsh-pocket/commit/d2e0b4680b7c1e3d6ef5ef84fcae5980d935a03f)), closes [#122](https://github.com/shaobeichen/dsh-pocket/issues/122)
+* **tunnel:** use the DSH home for plugin auto-restore state ([cab1e24](https://github.com/shaobeichen/dsh-pocket/commit/cab1e24cee3b7930a0158488633e0a6d2070f842)), closes [#121](https://github.com/shaobeichen/dsh-pocket/issues/121)
+
+
+### Features
+
+* **auth:** allow longer custom access PINs ([230039f](https://github.com/shaobeichen/dsh-pocket/commit/230039fdba07feee2ba28754fabd8b74b5986ad8))
+
 ## [2.10.6](https://github.com/shaobeichen/dsh-pocket/compare/v2.10.5...v2.10.6) (2026-09-10)
 
 
