@@ -850,7 +850,17 @@ export const MOBILE_CSS = `
      so a skin/operator plugin can legally reclaim this 28px band by
      setting document.body.dataset.pocketStats = 'off' (avoids the
      !important weight war that let two footers print on top of each
-     other — issue #165). Default behavior is unchanged. */
+     other — issue #165). Default behavior is unchanged.
+
+     Opt-out is two halves, not one. The rules above only stand pocket's
+     styling down; the row itself is the CORE's (conversation StatsPills
+     dock), so it keeps occupying the band with the core's own styling and
+     still collides with whoever took the band over (issue #172).
+     [data-mobile-nav="stats"] is a mark pocket writes itself
+     (mobile-apply.tsx), so opting out hides that element too — together with
+     the core readouts it carries (turns / steps / LLM time / TTFT / cache) and
+     the TPS figure pocket folds into it. That is what reclaiming the band
+     costs: whoever takes it over renders their own footer. */
 
   body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] {
     display: flex !important;
@@ -901,6 +911,18 @@ export const MOBILE_CSS = `
   }
   body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] * {
     white-space: nowrap !important;
+  }
+
+  /* The other half of that opt-out: standing pocket's styling down leaves
+     the core's own row in the band, so a skin that took the band over still
+     prints underneath it (issue #172). [data-mobile-nav="stats"] is a mark
+     pocket writes itself (mobile-apply.tsx) — opting out hides it with the
+     mark, and with it the core readouts that row carries. The default path
+     never matches this rule.
+     (A skin that wants the band *and* the row can take it back with an equally
+     specific rule plus !important — this rule carries no extra specificity.) */
+  body[data-pocket-stats="off"] [data-mobile-nav="stats"] {
+    display: none !important;
   }
 
   /* ---------- hero composer on mobile ----------
