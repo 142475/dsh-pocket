@@ -352,11 +352,15 @@ export const MOBILE_CSS = `
   }
 
   /* --- Composer bottom row on mobile ---
-     Keep add, permission, model, reasoning and send controls on one line at
-     the Honor 50's 360px CSS viewport. DSH's stable data-composer-card hook
-     survives the editor's textarea -> contenteditable migration. */
+     Let the row wrap instead of locking it to one line (issue #170): any
+     plugin can register extra non-shrinking controls here, and a hard
+     "nowrap" plus ":last-child { flex:1 1 0 }" squeezed the model pill (long
+     text, max-width:220px upstream) down to 0 width at 360px. Allowing
+     wrap keeps every control visible; the row simply spans two lines on
+     narrow screens. DSH's stable data-composer-card hook survives the
+     editor's textarea -> contenteditable migration. */
   [data-phase] [data-composer-card="true"] > [class$="_row"] {
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     gap: 6px !important;
   }
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child {
@@ -366,11 +370,6 @@ export const MOBILE_CSS = `
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child > :nth-child(2) {
     flex: 0 1 auto !important;
     min-width: 0 !important;
-  }
-  [data-phase] [data-composer-card="true"] > [class$="_row"] > :last-child {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    gap: 6px !important;
   }
 
   /* --- Composer popups as bottom sheets on mobile ---

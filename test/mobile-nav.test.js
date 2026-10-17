@@ -176,13 +176,17 @@ test('手机端右边栏默认显示，设置关闭后隐藏稳定 header corner
   assert.ok(apply.includes('MOBILE_RIGHTBAR_EVENT'), '设置切换后立即同步右栏入口');
 });
 
-test('composer 底栏用稳定 card 标记并在 360px 视口保持单行', () => {
+test('composer 底栏用稳定 card 标记并在窄屏允许换行 (#170)', () => {
   const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
   assert.ok(css.includes('[data-composer-card="true"] > [class$="_row"]'));
-  assert.ok(css.includes('flex-wrap: nowrap !important'));
+  assert.ok(css.includes('flex-wrap: wrap !important'), '窄屏允许底栏换行，避免模型药丸被压成 0 宽 (#170)');
   assert.ok(
     !css.includes('[class*="_card"]:has(textarea) > :last-child'),
     '会话 composer 底栏不能再依赖 textarea',
+  );
+  assert.ok(
+    !css.includes('[data-composer-card="true"] > [class$="_row"] > :last-child'),
+    '移除 :last-child 的 flex:1 1 0 挤压规则，模型药丸不再被压成 0 宽 (#170)',
   );
 });
 
