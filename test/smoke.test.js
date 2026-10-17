@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -31,6 +32,66 @@ function fakeCtxConnection() {
   };
   return { rpc: { handle }, get handler() { return handler; } };
 }
+
+/** 假 dsh web（压缩版）：浏览器若接受 gzip 就返回 gzip 的 HTML —— 复刻 dsh web 的真实行为
+ *  （实测首页 41KB 压到 7.5KB）。用来验证注入不会因为上游压缩而整体静默失效。 */
+async function fakeCompressingUpstream(seen) {
+  const server = createServer((req, res) => {
+    const acceptEncoding = String(req.headers['accept-encoding'] ?? '');
+    seen.push({ url: req.url, acceptEncoding, accept: String(req.headers.accept ?? '') });
+    const isAsset = /\.(?:js|css|woff2?)$/i.test(String(req.url));
+    const body = Buffer.from(isAsset
+      ? 'console.log("asset")'
+      : '<!doctype html><html><head><title>dsh</title></head><body>real-dsh-gzip</body></html>');
+    const type = isAsset ? 'application/javascript; charset=utf-8' : 'text/html; charset=utf-8';
+    if (!isAsset && /\bgzip\b/.test(acceptEncoding)) {
+      const gz = gzipSync(body);
+      res.writeHead(200, { 'content-type': type, 'content-encoding': 'gzip', 'content-length': String(gz.length) });
+      res.end(gz);
+      return;
+    }
+    res.writeHead(200, { 'content-type': type, 'content-length': String(body.length) });
+    res.end(body);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  return server;
+}
+
+test('真实链路：上游压缩的 HTML 也照样注入（issue #58 的前置条件）', async () => {
+  const seen = [];
+  const up = await fakeCompressingUpstream(seen);
+  const home = await mkdtemp(join(tmpdir(), 'smoke-gzip-'));
+  const service = createPocketService({ dshPort: up.address().port, port: 0, home });
+  try {
+    await service.startProxy();
+    const st = await service.status();
+
+    // 浏览器文档请求：带 text/html + gzip。上游本会压缩，代理必须先把它降级成 identity，
+    // 否则 injectHtml 分支（!isCompressed 才注入）整段跳过 —— polyfill / transport 兜底 /
+    // 页内信任声明全都到不了浏览器。
+    const doc = await fetch(`http://127.0.0.1:${st.proxyPort}/`, {
+      headers: { accept: 'text/html,application/xhtml+xml', 'accept-encoding': 'gzip, deflate, br' },
+    });
+    const html = await doc.text();
+    assert.equal(doc.status, 200);
+    assert.ok(html.includes('real-dsh-gzip'), '代理转发到上游');
+    assert.ok(html.includes('randomUUID'), '压缩上游下 polyfill 仍被注入');
+    const docSeen = seen.find((s) => s.accept.includes('text/html'));
+    assert.equal(docSeen.acceptEncoding, 'identity', 'HTML 文档请求向上游要未压缩形态');
+
+    // 资源请求：不带 text/html → 压缩通道保持不动
+    const asset = await fetch(`http://127.0.0.1:${st.proxyPort}/app.js`, {
+      headers: { accept: '*/*', 'accept-encoding': 'gzip, deflate, br' },
+    });
+    await asset.arrayBuffer();
+    const assetSeen = seen.find((s) => s.url === '/app.js');
+    assert.match(assetSeen.acceptEncoding, /gzip/, 'JS/CSS 资源照常走压缩');
+  } finally {
+    await service.dispose();
+    await new Promise((r) => up.close(r));
+    await rm(home, { recursive: true, force: true });
+  }
+});
 
 test('真实链路：代理转发 + polyfill 注入 + 状态快照（无 stub）', async () => {
   const up = await fakeUpstream();
