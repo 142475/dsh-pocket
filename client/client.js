@@ -2436,9 +2436,9 @@ function PocketSettingsTab({ rpcCall, t }) {
   const Switch = (on, onClick) => (0, import_react2.createElement)("button", {
     role: "switch",
     "aria-checked": !!on,
-    style: { flexShrink: 0, width: 40, height: 22, borderRadius: 11, border: "none", padding: 0, position: "relative", cursor: "pointer", font: "inherit", background: on ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-border-l2,#d1d5db)" },
+    style: { boxSizing: "border-box", flexShrink: 0, width: 36, height: 20, padding: 2, border: 0, borderRadius: 999, cornerShape: "round", position: "relative", cursor: "pointer", font: "inherit", background: on ? "var(--dsw-alias-brand-primary, #e6e8eb)" : "var(--dsw-alias-border-l3, #3a3f46)", transition: "background 120ms ease" },
     onClick
-  }, (0, import_react2.createElement)("span", { style: { position: "absolute", top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } }));
+  }, (0, import_react2.createElement)("span", { style: { display: "block", width: 16, height: 16, borderRadius: "50%", cornerShape: "round", background: on ? "var(--dsw-alias-label-primary-foreground, #0f1115)" : "var(--dsw-alias-switch-thumb, #8b9198)", transition: "transform 120ms ease", transform: on ? "translateX(16px)" : "translateX(0)" } }));
   const qrArea = (src, url, hint) => (0, import_react2.createElement)(
     "div",
     { style: { background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 10, padding: "10px 12px", textAlign: "center", margin: "10px 0" } },
