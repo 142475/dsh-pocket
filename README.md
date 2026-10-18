@@ -196,6 +196,19 @@ npx @deepseek-ai/dsh web
 2. 挂代理（系统代理/Clash 等）后重新点「开启公网访问」
 3. 手动下载二进制放到 `$DSH_HOME/dsh-pocket/bin/` 目录（`$DSH_HOME` 一般是 `~/.dsh`，Windows 是 `%USERPROFILE%\.dsh`；文件名用 `cloudflared`（Windows 加 `.exe`）或发布资产名均可，插件都认）
 
+## 🍎 iPad / Safari 16.x（老 WebKit）
+
+代理会往 HTML 里注入两段兼容补丁，**只在缺的时候生效**，不需要配置：
+
+- **Safari 16 缺的 API**：`Promise.withResolvers`、`Promise.try`、`Object.groupBy`、`Map.groupBy`、
+  `Symbol.dispose` / `Symbol.asyncDispose`、`Set.prototype.union` 等（Safari 17.4 之前没有）。
+  不补的话 WebSocket 握手成功也**不会发首帧**，页面永远停在「重新连接中」
+- **触摸设备首次点击**：会话行外面包着 `HoverCard`，iPad 上第一下点击只会打开悬停卡片、
+  行本身收不到 click（表现：左侧高亮但右侧对话不切换，连点两下才通）。补丁在 `pointerup` 后
+  确认真实 click 没落到该行时补发一次合成 click，鼠标与安卓行为不变
+
+注入发生在压缩过的 HTML 上也能生效（先解压、注入、再按原编码压回）。上游 DSH 修好后这段不冲突。
+
 ## 🗂 静态资源缓存（首屏只下一次）
 
 DSH 核心的静态服务**不发任何缓存头**（`@deepseek-ai/dsh-host-frontend-static` 的 `serveStatic()` 只写 `content-type`），
