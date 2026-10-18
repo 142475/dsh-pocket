@@ -400,7 +400,9 @@ test('会话指纹已移除（2.10.0）：页面与登录页不再注入指纹/a
   }
 });
 
-test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async () => {
+test('压缩 HTML（gzip）也要注入：解压→注入→压回，字节仍是 gzip', async () => {
+  // 回归：Safari 在明文 http 上只发 `gzip, deflate`，preferBrotli 收窄不到 br，
+  // 上游回 gzip → 旧实现整段跳过注入，polyfill / transport shim / 信标静默消失。
   const zlib = await import('node:zlib');
   const http = await import('node:http');
   const up = createServer((req, res) => {
@@ -412,7 +414,7 @@ test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async
   try {
     // 用原始 http.request（不带 accept-encoding，避免 undici 自动解压）拿真实字节
     const raw = await new Promise((resolve, reject) => {
-      const req = http.request({ host: '127.0.0.1', port: proxy.port, path: '/', headers: { accept: 'text/html' } }, (res) => {
+      const req = http.request({ host: '127.0.0.1', port: proxy.port, path: '/', headers: { accept: 'text/html', 'accept-encoding': 'gzip' } }, (res) => {
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => resolve({ headers: res.headers, body: Buffer.concat(chunks) }));
@@ -420,10 +422,13 @@ test('压缩 HTML（gzip）不注入 polyfill——防止损坏压缩流', async
       req.on('error', reject);
       req.end();
     });
-    assert.equal(raw.headers['content-encoding'], 'gzip', '压缩头原样透传');
-    assert.ok(raw.body[0] === 0x1f && raw.body[1] === 0x8b, '原始字节仍是 gzip（未做文本注入）');
-    assert.ok(!raw.body.toString('utf8').includes('randomUUID'), '压缩流未被注入破坏');
-    assert.ok(zlib.gunzipSync(raw.body).toString('utf8').includes('compressed-page'), '解压后内容完整');
+    assert.equal(raw.headers['content-encoding'], 'gzip', '压回后仍是 gzip');
+    assert.equal(Number(raw.headers['content-length']), raw.body.length, 'content-length 已修正');
+    assert.ok(raw.body[0] === 0x1f && raw.body[1] === 0x8b, '原始字节仍是 gzip');
+    const text = zlib.gunzipSync(raw.body).toString('utf8');
+    assert.ok(text.includes('randomUUID'), '压缩 HTML 也注入了 polyfill');
+    assert.ok(text.includes('compressed-page'), '原内容完整');
+    assert.equal(raw.headers['cache-control'], 'no-store', '注入后禁缓存，避免客户端继续用旧文档');
   } finally {
     await proxy.close();
     await new Promise((r) => up.close(r));
@@ -505,6 +510,23 @@ test('desktopEnvPatchScript：注入 dsh-desktop-mode/platform 参数补丁（is
   // 非法平台回退 linux
   const fallback = desktopEnvPatchScript('weirdos');
   assert.ok(fallback.includes("'linux'"), '非法平台回退 linux');
+});
+
+test('polyfill 在缺 API 的环境里真补上 Promise.withResolvers / Symbol.dispose / Set.union（iPadOS 16.x 整段崩的根因）', async () => {
+  // 回归：iPad Safari 16.6 缺 Promise.withResolvers（17.4 才有），DSH 0.2.1 的客户端
+  // bundle 在顶层直接调用 → TypeError → 应用停在骨架屏、WS 连上也不发首帧。
+  const vm = await import('node:vm');
+  const { RANDOM_UUID_POLYFILL } = await import('../lib/proxy.mjs');
+  const code = RANDOM_UUID_POLYFILL.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '');
+  const ctx = vm.createContext({ crypto: { getRandomValues: (b) => b.fill(7) } });
+  vm.runInContext('delete Promise.withResolvers; delete Promise.try; delete Symbol.dispose; delete Set.prototype.union;', ctx);
+  vm.runInContext(code, ctx);
+  assert.equal(vm.runInContext('typeof Promise.withResolvers', ctx), 'function', '补上 Promise.withResolvers');
+  assert.equal(vm.runInContext('Promise.withResolvers().promise instanceof Promise', ctx), true, '返回可用 promise');
+  assert.equal(vm.runInContext('typeof Promise.try', ctx), 'function', '补上 Promise.try');
+  assert.equal(vm.runInContext('typeof Symbol.dispose', ctx), 'symbol', '补上 Symbol.dispose');
+  assert.equal(vm.runInContext('new Set([1,2]).union(new Set([2,3])).size', ctx), 3, '补上 Set.prototype.union');
+  assert.equal(vm.runInContext('Object.groupBy([1,2,3],function(n){return n%2;})[1].length', ctx), 2, '补上 Object.groupBy');
 });
 
 test('压缩：大 JSON 响应流式 gzip（客户端解压内容一致）；SSE 与已压缩不重复压', async () => {
