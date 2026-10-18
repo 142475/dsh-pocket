@@ -6,7 +6,7 @@ import { createServer, request as httpRequest } from 'node:http';
 import { connect } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
 
-import { createPocketProxy, createHandshakeTracker } from '../lib/proxy.mjs';
+import { createPocketProxy, createHandshakeTracker, AUTH_AUDIENCE, AUTH_COOKIE_NAME, upstreamPathWithLaunchToken } from '../lib/proxy.mjs';
 
 /** 构造一个带掩码的 WS 文本帧（浏览器在握手后立即发的首帧，会进 upgrade 的 head）。 */
 function maskedTextFrame(text) {
@@ -124,12 +124,20 @@ test('HTTP：Host/Origin 被改写成 loopback 权威，响应原样返回', asy
     });
     assert.equal(res.status, 200);
     assert.equal(await res.text(), 'path=/api/hello');
-    assert.equal(up.seen[0].host, `127.0.0.1:${up.port}`, 'Host 已改写为 loopback 权威');
-    assert.equal(up.seen[0].origin, `http://127.0.0.1:${up.port}`, 'Origin 已改写');
+    assert.equal(up.seen[0].host, AUTH_AUDIENCE, 'Host 已改写成稳定的 loopback 权威');
+    assert.equal(up.seen[0].origin, `http://${AUTH_AUDIENCE}`, 'Origin 已改写');
   } finally {
     await proxy.close();
     await new Promise((r) => up.server.close(r));
   }
+});
+
+test('launch token 注入：只认当前 audience 的 dsh-auth cookie，旧名字不再挡住', () => {
+  const stale = 'dsh-auth-TsFs3w11s9hnOof5BVag33o87Cbu6BOYjaBtE7mTVBo=abc';
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', stale, 'tok'), '/?token=tok', '旧 audience 的 cookie 仍要补 token');
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', `${AUTH_COOKIE_NAME}=abc`, 'tok'), '/', '当前 cookie 不重复注入');
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', '', 'tok'), '/?token=tok', '没有 cookie 就补');
+  assert.equal(upstreamPathWithLaunchToken('/api/x', 'GET', '', 'tok'), '/api/x', '只对根路径补');
 });
 
 test('WS 上游 socket 发 RST（ECONNRESET）不崩进程（PR #49）：error 监听兜底', async () => {
@@ -1188,8 +1196,10 @@ test('upstreamPathWithLaunchToken（issue #77）：首屏根路径补 token，�
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', undefined, TOK), `/?token=${TOK}`, '根路径补 token');
   assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'other=1', TOK), `/?token=${TOK}`, '无会话 cookie 也补');
   assert.equal(upstreamPathWithLaunchToken('/?x=1', 'GET', undefined, TOK), `/?x=1&token=${TOK}`, '保留原有 query');
-  // 已有会话 cookie → 不补（否则上游 303 会死循环）
-  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-abc=xyz', TOK), '/', '有会话 cookie 不补');
+  // 已有**当前 audience** 的会话 cookie → 不补（否则上游 303 会死循环）
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', `${AUTH_COOKIE_NAME}=xyz`, TOK), '/', '有当前会话 cookie 不补');
+  // 旧 audience 的 cookie（宿主重启换过端口）→ 仍要补，否则永远 401
+  assert.equal(upstreamPathWithLaunchToken('/', 'GET', 'dsh-auth-abc=xyz', TOK), `/?token=${TOK}`, '旧名字的 cookie 不算数');
   // 非根路径 / 非 GET → 不补
   assert.equal(upstreamPathWithLaunchToken('/api/events.mux', 'GET', undefined, TOK), '/api/events.mux', 'API 路径不补');
   assert.equal(upstreamPathWithLaunchToken('/', 'POST', undefined, TOK), '/', '非 GET 不补');
@@ -1278,11 +1288,11 @@ test('端到端（issue #77 + #91）：代理自动补 token 完成会话握手�
     seen.push(req.url);
     const u = new URL(req.url ?? '/', 'http://x');
     if (u.pathname === '/' && u.searchParams.get('token') === TOK) {
-      res.writeHead(303, { location: '/', 'set-cookie': 'dsh-auth-abc=1; Path=/; HttpOnly; SameSite=Strict' });
+      res.writeHead(303, { location: '/', 'set-cookie': `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Strict` });
       res.end();
       return;
     }
-    if (String(req.headers.cookie ?? '').includes('dsh-auth-')) {
+    if (String(req.headers.cookie ?? '').includes(AUTH_COOKIE_NAME)) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end('<html><body>index</body></html>');
       return;
@@ -1304,14 +1314,14 @@ test('端到端（issue #77 + #91）：代理自动补 token 完成会话握手�
     assert.equal(first.status, 200, '首屏返回 200 过渡页（不是 303）');
     assert.equal(first.headers.get('x-dsh-pocket-handshake'), 'transition', '标记为握手过渡页');
     const setCookie = first.headers.get('set-cookie') ?? '';
-    assert.ok(setCookie.includes('dsh-auth-'), '过渡页照常下发会话 cookie');
+    assert.ok(setCookie.includes(AUTH_COOKIE_NAME), '过渡页照常下发会话 cookie');
     const page = await first.text();
     assert.match(page, /http-equiv="refresh"/, '过渡页用 meta refresh 跳回根路径');
     assert.match(page, /url=\//, '跳转目标是干净的 /');
     assert.ok(seen.some((u) => u.includes(`token=${TOK}`)), '上游确实收到了启动 token');
 
     // 浏览器带着 cookie 再访问：不再补 token → 直接拿到首页（不会循环）
-    const second = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: 'dsh-auth-abc=1' } });
+    const second = await fetch(`${base}/`, { redirect: 'manual', headers: { host: 'abc.trycloudflare.com', cookie: `${AUTH_COOKIE_NAME}=1` } });
     assert.equal(second.status, 200, '带 cookie 直接返回首页');
     assert.match(await second.text(), /index/, '首页内容正确');
     assert.ok(!seen[seen.length - 1].includes('token='), '带 cookie 的请求不再补 token（防循环）');
