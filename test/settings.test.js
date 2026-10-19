@@ -1,7 +1,7 @@
 // 局域网访问密码开关（issue #24）：默认开启、持久化、可关可开
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -282,4 +282,23 @@ test('恢复出厂设置会清掉 frp 配置（模式回随机域名、服务器
   assert.equal(s.frpServer(), '', 'frp 服务器已清空');
   assert.equal(s.frpToken(), '', 'frp token 已清空');
   assert.equal(s.frpRemotePort(), 60012, '远程端口回到默认');
+}));
+
+test('登录 cookie 密钥落盘复用：同一 DSH_HOME 多次调用一致，换个 home 才变', () => withHome(async (home) => {
+  const { cookieKey } = await import('../lib/settings.mjs');
+  const a = cookieKey();
+  assert.match(a, /^[0-9a-f]{64}$/, '64 位十六进制');
+  assert.equal(cookieKey(), a, '第二次调用复用磁盘上的密钥（重启 dsh web 不换）');
+  const file = join(home, 'dsh-pocket', 'cookie-key');
+  assert.equal(readFileSync(file, 'utf8').trim(), a, '密钥已落盘');
+}));
+
+test('登录 cookie 密钥：文件损坏时重新生成，不会崩', () => withHome(async (home) => {
+  const { cookieKey } = await import('../lib/settings.mjs');
+  const file = join(home, 'dsh-pocket', 'cookie-key');
+  mkdirSync(join(home, 'dsh-pocket'), { recursive: true });
+  writeFileSync(file, 'not-a-key');
+  const key = cookieKey();
+  assert.match(key, /^[0-9a-f]{64}$/, '重新生成了合法密钥');
+  assert.equal(cookieKey(), key, '之后复用新密钥');
 }));
