@@ -101,6 +101,36 @@ test('selectLanIPv4：空接口表返回 null', () => {
   assert.equal(selectLanIPv4({}), null);
 });
 
+test('selectLanIPv4（issue #176）：Windows ICS / 移动热点虚拟网卡 本地连接* N 不被当物理网卡', () => {
+  // 模拟 Windows 开热点：ICS 虚拟适配器 本地连接* 2（192.168.137.1，固定保留段），
+  // 真实 WLAN 在另一私网段。ICS 网卡常排在 WLAN 之前（枚举顺序），旧实现会选到不可达的 137.1。
+  assert.equal(
+    selectLanIPv4(ifaces([
+      ['本地连接* 2', '192.168.137.1'],
+      ['WLAN', '192.168.1.50'],
+    ])),
+    '192.168.1.50',
+    'ICS 虚拟网卡不加分，真实 WLAN 胜出',
+  );
+  // ICS 排在 WLAN 之前也一样（旧实现此处会误选 137.1）
+  assert.equal(
+    selectLanIPv4(ifaces([
+      ['WLAN', '192.168.1.50'],
+      ['本地连接* 2', '192.168.137.1'],
+    ])),
+    '192.168.1.50',
+  );
+  // 同分时（假设真实网卡名也不匹配 PHYSICAL）仍优先非 192.168.137.x 段
+  assert.equal(
+    selectLanIPv4(ifaces([
+      ['本地连接* 9', '192.168.137.1'],
+      ['SomeAdapter', '192.168.137.2'],
+    ])),
+    '192.168.137.2',
+    '兜底：同分优先非 ICS 保留段',
+  );
+});
+
 test('service：lanIpOverride 优先于自动选择，status 返回候选地址', async () => {
   const internals = stubInternals();
   let override = '';

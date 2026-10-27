@@ -1,3 +1,23 @@
+# [2.12.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.11.0...v2.12.0) (2026-10-17)
+
+
+### Bug Fixes
+
+* allow clearing custom public and lan access pins ([c6e2ce1](https://github.com/shaobeichen/dsh-pocket/commit/c6e2ce19d304f87d1b4d67ca4aeee0ce9b8b87ee)), closes [#166](https://github.com/shaobeichen/dsh-pocket/issues/166)
+* **client:** release the stats band for real when pocketStats is opte… ([8e60d4e](https://github.com/shaobeichen/dsh-pocket/commit/8e60d4ef40b4c7ada8904809f01450e278c40bbe)), closes [#172](https://github.com/shaobeichen/dsh-pocket/issues/172) [#172](https://github.com/shaobeichen/dsh-pocket/issues/172) [#165](https://github.com/shaobeichen/dsh-pocket/issues/165) [#172](https://github.com/shaobeichen/dsh-pocket/issues/172) [#175](https://github.com/shaobeichen/dsh-pocket/issues/175)
+* **client:** 设置页开关圆钮硬编码 #fff，深色主题下白钮贴白轨看不出状态 ([f24c6de](https://github.com/shaobeichen/dsh-pocket/commit/f24c6de9ac3c6f88b8f50284819b95ad65a55405)), closes [#4f6ef7](https://github.com/shaobeichen/dsh-pocket/issues/4f6ef7) [#d1d5db](https://github.com/shaobeichen/dsh-pocket/issues/d1d5db) [21/#20](https://github.com/shaobeichen/dsh-pocket/issues/20) [#e6e8eb](https://github.com/shaobeichen/dsh-pocket/issues/e6e8eb) [#3a3f46](https://github.com/shaobeichen/dsh-pocket/issues/3a3f46) [#0f1115](https://github.com/shaobeichen/dsh-pocket/issues/0f1115) [#8b9198](https://github.com/shaobeichen/dsh-pocket/issues/8b9198) [#fff](https://github.com/shaobeichen/dsh-pocket/issues/fff) [#fff](https://github.com/shaobeichen/dsh-pocket/issues/fff) [#178](https://github.com/shaobeichen/dsh-pocket/issues/178)
+* **desktop:** 用 Electron 运行时特征判定 isDesktop ([#177](https://github.com/shaobeichen/dsh-pocket/issues/177)) ([41245a9](https://github.com/shaobeichen/dsh-pocket/commit/41245a9fc6e4dd89d37ea974e2a99841d78d0826))
+* **lan:** 排除 Windows 移动热点/ICS 虚拟网卡 (selectLanIPv4 [#176](https://github.com/shaobeichen/dsh-pocket/issues/176)) ([a80c5d3](https://github.com/shaobeichen/dsh-pocket/commit/a80c5d3cf45f195bea3d5b36ab7998bc2bc042ca))
+* **mobile:** 360px composer 底栏允许换行 ([#170](https://github.com/shaobeichen/dsh-pocket/issues/170)) ([db1ddaf](https://github.com/shaobeichen/dsh-pocket/commit/db1ddafb7f17a78082eb6e1a1d119ff31fcefc01))
+* **mobile:** 手机工作区图标崩溃——新增 icon-compat 兼容层 ([#161](https://github.com/shaobeichen/dsh-pocket/issues/161)/[#171](https://github.com/shaobeichen/dsh-pocket/issues/171)) ([dc9d5dc](https://github.com/shaobeichen/dsh-pocket/commit/dc9d5dc9cda6af1c41f0055c0217a788350078f3)), closes [#140](https://github.com/shaobeichen/dsh-pocket/issues/140)
+* **proxy:** 公网隧道继承本机代理环境变量导致 1033 通道错误 ([9f91e54](https://github.com/shaobeichen/dsh-pocket/commit/9f91e54d1e1e8679f45a7ca0e54d429f41593fa1))
+* **proxy:** 远程访问也能用「设置 → 模型」（issue [#58](https://github.com/shaobeichen/dsh-pocket/issues/58)） ([48297a7](https://github.com/shaobeichen/dsh-pocket/commit/48297a75187e8114b7bc314536678a712a4944be)), closes [#100](https://github.com/shaobeichen/dsh-pocket/issues/100) [#130](https://github.com/shaobeichen/dsh-pocket/issues/130) [#150](https://github.com/shaobeichen/dsh-pocket/issues/150) [#151](https://github.com/shaobeichen/dsh-pocket/issues/151) [#169](https://github.com/shaobeichen/dsh-pocket/issues/169)
+
+
+### Features
+
+* **auth:** improve PIN autofill and password visibility ([8b9c27a](https://github.com/shaobeichen/dsh-pocket/commit/8b9c27a56395e8693dc8c3a723841ca052a09283)), closes [#168](https://github.com/shaobeichen/dsh-pocket/issues/168)
+
 # [2.11.0](https://github.com/shaobeichen/dsh-pocket/compare/v2.10.6...v2.11.0) (2026-10-12)
 
 
