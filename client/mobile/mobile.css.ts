@@ -484,6 +484,13 @@ export const MOBILE_CSS = `
     border-radius: 14px !important;
     animation: dsh-mobile-nav-sheet-in .22s var(--ds-ease-out, ease-in-out);
   }
+  /* The settings overlay is z-index:1000 in the core stylesheet, BELOW this
+     plugin's drawer (1200) — on a phone the sheet opened *behind* the drawer
+     and the settings button read as "点了没反应". Lift the overlay (the
+     parent of the sheet) above the drawer; the mask keeps its own paint. */
+  :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) {
+    z-index: 1300 !important;
+  }
   /* The settings sheet's dimmed mask fades in with the panel (the mask is
      the first child of the overlay that directly contains the sheet). */
   :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
@@ -968,6 +975,20 @@ export const MOBILE_CSS = `
   button[aria-label="Add workspace…"] {
     display: none !important;
   }
+}
+
+/* ---------- portaled menus must sit ABOVE the drawer ----------
+ * The core renders the workspace「视图选项」/ session-row kebab menus with
+ * createPortal(document.body) and the CSS module class named portal_*
+ * (position:fixed; z-index:1100). This plugin lifts the drawer to 1200, so on
+ * narrow screens the menu opens *behind* the drawer and every workspace
+ * control reads as "点了没反应" — the click works, the menu mounts, it is just
+ * invisible. The drawer stays open because onOutsideClick exempts role=menu.
+ * Match on the class prefix (the hash suffix changes across core builds) and
+ * lift only the portaled variant; the absolute submenu keeps its own stacking
+ * inside the parent menu. */
+[role="menu"][class*="_portal_"] {
+  z-index: 1300 !important;
 }
 
 /* ---------- mobile: stop iOS Safari forced zoom on input focus ----------

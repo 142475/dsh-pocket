@@ -153,6 +153,30 @@ test('移除 web-ui-all 在 frame 上的全屏 ::after 遮罩 —— issue #67',
   );
 });
 
+test('portal 菜单与设置面板必须压过抽屉（否则窄屏上点开看不见）', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  const drawerBlock = css.slice(css.indexOf('> :first-child {'));
+  const drawerZ = Number(drawerBlock.match(/z-index:\s*(\d+)\s*!/)[1]);
+  // 核心把「视图选项」/ 会话行 kebab 的菜单 createPortal 到 document.body，
+  // 用 _portal_ 类（position:fixed; z-index:1100）；设置面板 overlay 是 1000。
+  // 抽屉抬到 1200 后这两者都被盖住 —— 菜单/面板其实开了，只是不可见，
+  // 表现为「点了没反应」。必须都抬到抽屉之上。
+  const portalZ = css.match(/\[role="menu"\]\[class\*="_portal_"\]\s*\{\s*z-index:\s*(\d+)\s*!/);
+  assert.ok(portalZ, '必须有把 _portal_ 菜单抬到抽屉之上的规则');
+  assert.ok(
+    Number(portalZ[1]) > drawerZ,
+    `portal 菜单 z-index ${portalZ[1]} 必须大于抽屉 ${drawerZ}`,
+  );
+  const sheetOverlayZ = css.match(
+    /:has\(> \[aria-modal="true"\]:has\(> :first-child > :last-child > button\):not\(:has\(\[role="navigation"\]\)\)\)\s*\{\s*z-index:\s*(\d+)\s*!/,
+  );
+  assert.ok(sheetOverlayZ, '必须有把设置面板 overlay 抬到抽屉之上的规则');
+  assert.ok(
+    Number(sheetOverlayZ[1]) > drawerZ,
+    `设置面板 overlay z-index ${sheetOverlayZ[1]} 必须大于抽屉 ${drawerZ}`,
+  );
+});
+
 test('打包产物里带上抽屉规则的关键字', () => {
   const bundle = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
   // client/client.js 是 esbuild 产物，跑测试前需先 npm run build:client
