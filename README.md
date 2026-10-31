@@ -154,6 +154,7 @@ npx @deepseek-ai/dsh web
 | Linux 服务器装不上 cloudflared（issue #45） | 远程 Linux 国内/企业网下所有 CDN 源（GitHub/ghproxy/gh.ddlc/gh-proxy）都连不上时：在服务器上手动装 `cloudflared`（如 `apt install cloudflared`、`dnf install cloudflared`、或下载 tgz 解压到任意目录），然后在 `$DSH_HOME/dsh-pocket/settings.json` 加 `"cloudflaredPath": "/path/to/cloudflared"`，重启 `dsh web` 后插件直接调用它，**不再走自动下载** |
 | 版本停在 0.x 升不上去                       | `^0.x` 范围不允许升到 1.x：更新用 `--latest`（`dsh plugin --profile web update dsh-pocket --latest -w`）                                                                                                                                                                                                                                                |
 | 公网 `error 1033`                           | 见下方「公网隧道常见问题」——多半是本机代理/VPN（Clash 等 TUN 模式）掐断了隧道                                                                                                                                                                                                                                                                           |
+| 安卓手机点工作区「视图选项」/ 设置图标，屏幕毫无变化 | 菜单/面板其实已经打开，只是被抽屉盖住（层级竞争）。见下方「📱 窄屏浮层被抽屉盖住」                                                                                                                                                                                                                                                                      |
 | 点「重启 dsh web」后页面提示进程在后台运行  | 自重启的新进程是 detached 后台进程（不挂终端），是页内更新的标准做法；停止它：macOS/Linux `lsof -ti :3080 \| xargs kill -9`；Windows `netstat -ano \| findstr :3080` → `taskkill /PID <PID> /F`（日志在 `$DSH_HOME` 下 `dsh-pocket-restart-*.log`）                                                                                                     |
 
 ## ⚠️ 公网隧道常见问题（必读）
@@ -213,6 +214,48 @@ npx @deepseek-ai/dsh web
   确认真实 click 没落到该行时补发一次合成 click，鼠标与安卓行为不变
 
 注入发生在压缩过的 HTML 上也能生效（先解压、注入、再按原编码压回）。上游 DSH 修好后这段不冲突。
+
+## 📱 窄屏浮层被抽屉盖住
+
+**现象**：手机上点工作区那一排里的「视图选项」（滑块图标）或侧栏底部的设置图标，
+**屏幕毫无变化**，抽屉照旧开着。iPad、Windows 完全正常。
+
+**根因**：这是纯层级问题，不是点击没生效——浮层其实已经打开了，只是看不见。
+
+| 层 | z-index | 来源 |
+| --- | --- | --- |
+| 移动端抽屉 | **1200** | `client/mobile/mobile.css.ts`（为压过 `dsh-web-ui-all` 的 1100/1050 而抬） |
+| 工作区菜单 / 会话行 kebab（portal 到 `document.body`） | 1100 | DSH 核心 `_portal_*` |
+| 设置面板 overlay | 1000 | DSH 核心 `AnXs9G_overlay` |
+
+抽屉 1200 抬上去之后，核心这两个 portal 浮层就全跑到它下面了。加上 `onOutsideClick`
+对 `role="menu"` 有豁免（issue #72 为避免第一次点菜单项被吃而加的），抽屉也不会关，
+所以表现成「点了没反应」。
+
+**为什么只有手机**：这套 mobile CSS 与 document 级 capture 监听**只在窄屏且抽屉展开时挂**
+（`mobile-apply.tsx` 里 `if (layout === 'desktop') return`，`MobileNavOverlay` 的三个 effect
+都以 `if (!mobile || !open) return` 开头）。宽屏走 desktop 分支，两者都不挂。
+
+**修法**（已内置，无需配置）：把这两类浮层抬到抽屉之上、视口级 banner/toast（9999）之下：
+
+```css
+/* 工作区「视图选项」/ 会话行 kebab：菜单 portal 到 body，class 带 _portal_ 前缀 */
+[role="menu"][class*="_portal_"] {
+  z-index: 1300 !important;
+}
+
+/* 设置面板 overlay：靠 :has 定位到那个 aria-modal sheet */
+:has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) {
+  z-index: 1300 !important;
+}
+```
+
+菜单选择器用 **class 前缀 `_portal_`** 匹配而不是写死 hash 后缀（`_portal_4ub78_41` 里的
+`4ub78` 随核心构建变化）。
+
+**改动 pocket 样式时的约束**：`mobile.css.ts` 是模板字符串，注释里**不要写反引号包裹的标识符**
+（会被 esbuild 当成模板字符串结束，构建报 `Expected ";" but found ...`）。
+`test/mobile-nav.test.js` 有回归用例锁住这三层的相对大小，改层级会先被测试拦下。
 
 ## 🗂 静态资源缓存（首屏只下一次）
 
