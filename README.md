@@ -257,6 +257,39 @@ npx @deepseek-ai/dsh web
 （会被 esbuild 当成模板字符串结束，构建报 `Expected ";" but found ...`）。
 `test/mobile-nav.test.js` 有回归用例锁住这三层的相对大小，改层级会先被测试拦下。
 
+## 📱 窄屏主内容被挤到 0 宽（点会话后中间一片空白）
+
+**现象**：手机上能进主界面、侧栏会话列表也正常，但**点开任何一个会话，中间一片空白**
+（不是白屏：欢迎页、输入框都还在）。iPad、Windows 完全正常。
+
+**根因**：`client/mobile/mobile.css.ts` 用**结构选择器**锚定抽屉和主列：
+
+| 选择器 | 作者本意 | 实际命中 |
+| --- | --- | --- |
+| `[data-mobile-nav="frame"] > :first-child` | 侧栏（抽屉） | **pocket 自己的 backdrop** —— 它渲染在 AppFrame 的首位 |
+| `[data-mobile-nav="frame"] > :nth-child(2)` | 主内容列 | **侧栏** |
+
+于是抽屉被当成主列塞进 `grid-column: 1`（`grid-template-columns: minmax(0,1fr) 0 0`），
+真正的对话列落到**宽度为 0 的第 2 条轨道**，整块在屏幕外（x = 视口宽）。
+
+**为什么难发现**：DOM 里内容齐全，`innerText` 能取到完整对话文本 —— 只是**几何位置在屏幕外**。
+用「文本长度 / 消息节点数」判断会误判成"正常"，必须看 `getBoundingClientRect().width`。
+
+**修法**：按类名锚定，不依赖子元素顺序：
+
+- `[data-mobile-nav="frame"] > [class*="_sidebarCol"]` —— 抽屉
+- `[data-mobile-nav="frame"] > [class*="_centerCol"]` —— 主内容列
+
+`test/mobile-nav.test.js` 已加回归用例：这两个类名选择器必须存在，且
+`> :first-child {` / `> :nth-child(2) {` 这类结构选择器**不得**再出现。
+
+**自查代码**（浏览器控制台，窄屏下执行）：
+
+- `const f = document.querySelector('[data-shell-overlay]').parentElement;`
+- `[...f.children].forEach(c => { const r = c.getBoundingClientRect(); console.log(c.className, r.width, r.x); });`
+
+`_centerCol` 的 `width` 必须等于视口宽、`x` 必须是 0。若 width=0 且 x=视口宽，就是这个 bug。
+
 ## 🗂 静态资源缓存（首屏只下一次）
 
 DSH 核心的静态服务**不发任何缓存头**（`@deepseek-ai/dsh-host-frontend-static` 的 `serveStatic()` 只写 `content-type`），
