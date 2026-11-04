@@ -126,7 +126,7 @@ test('抽屉层级压过 dsh-web-ui-all 的移动端遮罩 —— issue #67', ()
   // web-ui-all 0.3.6 的移动端响应式：sidebar pane 1100 / details pane 1000 /
   // frame ::after 全屏遮罩 1050。抽屉必须高于 1100，否则那层遮罩会盖在抽屉
   // 上吃掉每一次点击 —— 抽屉能开，但里面什么都点不动，页面也滚不了。
-  const drawerBlock = css.slice(css.indexOf('> :first-child {'));
+  const drawerBlock = css.slice(css.indexOf('[class*="_sidebarCol"] {'));
   const z = drawerBlock.match(/z-index:\s*(\d+)\s*!/);
   assert.ok(z, '抽屉必须显式声明 z-index !important');
   assert.ok(
@@ -155,7 +155,7 @@ test('移除 web-ui-all 在 frame 上的全屏 ::after 遮罩 —— issue #67',
 
 test('portal 菜单与设置面板必须压过抽屉（否则窄屏上点开看不见）', () => {
   const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
-  const drawerBlock = css.slice(css.indexOf('> :first-child {'));
+  const drawerBlock = css.slice(css.indexOf('[class*="_sidebarCol"] {'));
   const drawerZ = Number(drawerBlock.match(/z-index:\s*(\d+)\s*!/)[1]);
   // 核心把「视图选项」/ 会话行 kebab 的菜单 createPortal 到 document.body，
   // 用 _portal_ 类（position:fixed; z-index:1100）；设置面板 overlay 是 1000。
@@ -256,4 +256,24 @@ test('打包产物：mobile-apply 引用的组件都有 import 且有定义', ()
     const defs = (bundle.match(new RegExp(`(?:function\\s+${name}\\b|\\b${name}\\s*=)`, 'g')) ?? []).length;
     assert.ok(defs >= 1, `${name} 在打包产物里只有引用、没有定义 —— 漏 import 会让整个插件加载失败`);
   }
+});
+
+test('抽屉与主列必须按类名锚定，不能用 :first-child / :nth-child', () => {
+  const css = readFileSync(new URL('../client/mobile/mobile.css.ts', import.meta.url), 'utf8');
+  assert.ok(
+    css.includes('[data-mobile-nav="frame"] > [class*="_sidebarCol"] {'),
+    '抽屉规则必须锚定 _sidebarCol 类名',
+  );
+  assert.ok(
+    css.includes('[data-mobile-nav="frame"] > [class*="_centerCol"] {'),
+    '主列规则必须锚定 _centerCol 类名',
+  );
+  assert.ok(
+    !css.includes('[data-mobile-nav="frame"] > :first-child {'),
+    '不能用 :first-child —— backdrop 会占据 frame 首位，抽屉与主列全部错位',
+  );
+  assert.ok(
+    !css.includes('[data-mobile-nav="frame"] > :nth-child(2) {'),
+    '不能用 :nth-child(2) —— backdrop 插入后第 2 个是抽屉，主列被压到 0 宽轨道',
+  );
 });
