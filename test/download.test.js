@@ -101,7 +101,12 @@ test('resolveCloudflared：手动放置的资产名文件也能命中缓存（is
   await fsp.rm(home, { recursive: true, force: true });
 });
 
-test('resolveCloudflared：Linux 上丢弃 Homebrew bottle 坏缓存（issue #22）', async () => {
+// 只在 Linux 上适用：Homebrew bottle 坏缓存的检查分支本身是 Linux 专属（断言也早已
+// 用 `process.platform === 'linux'` 门控），但调用 resolveCloudflared() 在其它平台上
+// 会走去下载 cloudflared——无外网时四个镜像轮流超时，把测试拖到 60s 超时。
+const LINUX_ONLY = process.platform === 'linux' ? false : '仅在 Linux 上适用（Homebrew bottle 坏缓存检查）';
+
+test('resolveCloudflared：Linux 上丢弃 Homebrew bottle 坏缓存（issue #22）', { skip: LINUX_ONLY }, async () => {
   const fsp = await import('node:fs/promises');
   const os = await import('node:os');
   const path = await import('node:path');

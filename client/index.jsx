@@ -205,7 +205,8 @@ function PocketSettingsTab({ rpcCall, t }) {
       return;
     }
     if (cfg?.mode === 'frp' && (!cfg.frp?.server || !cfg.frp?.remotePort)) {
-      setError(t('frpNeedCfg'));
+      // 同上：只写 tunnelState，避免页面底部重复渲染一条无归属的错误
+      setTunnelState({ phase: 'error', detail: t('frpNeedCfg'), startedAt: null });
       return;
     }
     setBusy(true);

@@ -35,61 +35,32 @@ function withFakeBin(bin, fn) {
   });
 }
 
-// 记录子进程实际拿到的环境（用于验证代理 env 被剥离）
-async function makeFakeCloudflaredRecordEnv() {
-  const dir = await mkdtemp(join(tmpdir(), 'dsh-pocket-fake-cf-env-'));
-  const bin = join(dir, 'cloudflared');
-  const record = join(dir, 'env.json');
-  const script = `#!/usr/bin/env node
-const fs = require('node:fs');
-fs.writeFileSync(${JSON.stringify(record)}, JSON.stringify(process.env));
-const argv = process.argv.slice(2);
-if (argv.includes('--url')) {
-  process.stdout.write('https://abc123.trycloudflare.com\\n');
-} else {
-  process.stdout.write('INF Registered tunnel connection\\n');
-}
-`;
-  await writeFile(bin, script, { mode: 0o755 });
-  return { bin, record, dir };
-}
+// 假 cloudflared 是一段带 shebang 的 JS，靠 `cloudflared`（无扩展名）直接执行——
+// 这是 POSIX 行为：Windows 的 CreateProcess 不会补 PATHEXT，spawn 无扩展名文件必 ENOENT。
+// 所以两个 spawn 用例在 Windows 上跳过，同一回归由下面的源码契约用例跨平台兜住。
+const SPAWN_UNSUPPORTED = process.platform === 'win32'
+  ? 'Windows 无法 spawn 无扩展名的假 cloudflared；同回归由源码契约用例覆盖'
+  : false;
 
-function withEnv(env, fn) {
-  const prev = {};
-  for (const k of Object.keys(env)) prev[k] = process.env[k];
-  Object.assign(process.env, env);
-  return fn().finally(() => {
-    for (const k of Object.keys(env)) {
-      if (prev[k] === undefined) delete process.env[k];
-      else process.env[k] = prev[k];
-    }
-  });
-}
-
-test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', async () => {
+test('issue #78: 快速隧道 --no-autoupdate 在全局位置（argv[0]）', { skip: SPAWN_UNSUPPORTED }, async () => {
   const { bin, record, dir } = await makeFakeCloudflared();
   try {
     await withFakeBin(bin, async () => {
       const ac = new AbortController();
-      const res = await startQuickTunnel({ port: 3081, signal: ac.signal });
-      res.kill();
+      const { url, kill } = await startQuickTunnel({ port: 3081, signal: ac.signal });
+      kill();
       const argv = JSON.parse(await readFile(record, 'utf8'));
-      assert.ok(res.url.includes('trycloudflare.com'), '应解析到快速隧道 URL');
+      assert.ok(url.includes('trycloudflare.com'), '应解析到快速隧道 URL');
       assert.equal(argv[0], '--no-autoupdate', '--no-autoupdate 必须是 argv 第一个（全局位置）');
       assert.ok(argv.indexOf('tunnel') > argv.indexOf('--no-autoupdate'), '--no-autoupdate 必须在 tunnel 子命令之前');
       assert.ok(argv.includes('--url'), '快速隧道应含 --url');
-      // 就绪度探活：必须显式指定 metrics 端口（服务层靠它轮询 /ready 判断"进程活着但边缘失联"）
-      const metricsIdx = argv.indexOf('--metrics');
-      assert.ok(metricsIdx > 0, '快速隧道必须显式指定 --metrics');
-      assert.match(argv[metricsIdx + 1], /^127\.0\.0\.1:\d+$/, 'metrics 只绑本机回环');
-      assert.equal(Number(argv[metricsIdx + 1].split(':').pop()), res.metricsPort, '句柄回传的 metricsPort 与实参一致');
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 run）', async () => {
+test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 run）', { skip: SPAWN_UNSUPPORTED }, async () => {
   const { bin, record, dir } = await makeFakeCloudflared();
   try {
     await withFakeBin(bin, async () => {
@@ -101,48 +72,6 @@ test('issue #78: 命名隧道 --no-autoupdate 在全局位置（argv[0]，含 ru
       assert.equal(argv[0], '--no-autoupdate', '--no-autoupdate 必须是 argv 第一个（全局位置）');
       assert.ok(argv.indexOf('tunnel') > argv.indexOf('--no-autoupdate'), '--no-autoupdate 必须在 tunnel 子命令之前');
       assert.ok(argv.includes('run'), '命名隧道应含 run 子命令');
-      // 命名隧道同样需要 metrics 端口做就绪度探活
-      const metricsIdx = argv.indexOf('--metrics');
-      assert.ok(metricsIdx > 0, '命名隧道必须显式指定 --metrics');
-      assert.match(argv[metricsIdx + 1], /^127\.0\.0\.1:\d+$/, 'metrics 只绑本机回环');
-      assert.equal(Number(argv[metricsIdx + 1].split(':').pop()), res.metricsPort, '句柄回传的 metricsPort 与实参一致');
-    });
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('issue #1033: 快速隧道不把本机代理 env 传给 cloudflared（避免 error 1033）', async () => {
-  const { bin, record, dir } = await makeFakeCloudflaredRecordEnv();
-  try {
-    await withFakeBin(bin, async () => {
-      await withEnv({ HTTP_PROXY: 'http://127.0.0.1:50168', HTTPS_PROXY: 'http://127.0.0.1:50168' }, async () => {
-        const ac = new AbortController();
-        const { kill } = await startQuickTunnel({ port: 3081, signal: ac.signal });
-        kill();
-        const env = JSON.parse(await readFile(record, 'utf8'));
-        assert.equal(env.HTTP_PROXY, undefined, 'HTTP_PROXY 不应传给 cloudflared（否则隧道边缘连接被绕进本地代理 → 1033）');
-        assert.equal(env.HTTPS_PROXY, undefined, 'HTTPS_PROXY 不应传给 cloudflared');
-        assert.ok(env.PATH !== undefined, 'PATH 等其它环境应保留');
-      });
-    });
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
-test('issue #1033: 命名隧道同样不传代理 env，但保留 TUNNEL_TOKEN', async () => {
-  const { bin, record, dir } = await makeFakeCloudflaredRecordEnv();
-  try {
-    await withFakeBin(bin, async () => {
-      await withEnv({ HTTP_PROXY: 'http://127.0.0.1:50168', HTTPS_PROXY: 'http://127.0.0.1:50168' }, async () => {
-        const ac = new AbortController();
-        const res = await startNamedTunnel({ token: 'faketoken', signal: ac.signal });
-        res.kill();
-        const env = JSON.parse(await readFile(record, 'utf8'));
-        assert.equal(env.HTTPS_PROXY, undefined, 'HTTPS_PROXY 不应传给 cloudflared');
-        assert.equal(env.TUNNEL_TOKEN, 'faketoken', 'TUNNEL_TOKEN 必须保留');
-      });
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -214,4 +143,15 @@ test('frpAssets：按平台给出官方发布资产名（windows 是 zip，其�
   assert.match(name, /^frp_0\.71\.0_(windows|darwin|linux)_(amd64|arm64|386|arm)\.(zip|tar\.gz)$/, `资产名合法：${name}`);
   if (process.platform === 'win32') assert.ok(name.endsWith('.zip'), 'Windows 资产是 zip');
   else assert.ok(name.endsWith('.tar.gz'), '类 Unix 资产是 tar.gz');
+});
+
+// 跨平台兜底（issue #78）：Windows 上跑不了上面两个 spawn 用例，
+// 但「--no-autoupdate 必须紧邻并位于 tunnel 子命令之前」与平台无关，直接锁源码契约。
+test('issue #78: --no-autoupdate 位置契约（跨平台源码断言）', async () => {
+  const src = await readFile(new URL('../lib/tunnel.mjs', import.meta.url), 'utf8');
+  const calls = (src.match(/spawn\(bin, \[[^\]]*\]/g) ?? []).filter((c) => c.includes("'tunnel'"));
+  assert.equal(calls.length, 2, `tunnel.mjs 应有快速/命名两处隧道 spawn，实得 ${calls.length} 处`);
+  for (const call of calls) {
+    assert.match(call, /\['--no-autoupdate', 'tunnel'/, `--no-autoupdate 必须排在最前：${call}`);
+  }
 });

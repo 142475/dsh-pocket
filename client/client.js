@@ -10,9 +10,11 @@ window.__ModuleLoader__.load({
     // the bundle must bind React itself - otherwise every mobile component
     // crashes at render time with "ReferenceError: React is not defined".
     var React = require("react");
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name2 in all)
@@ -26,6 +28,14 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // client/index.jsx
@@ -57,10 +67,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanSetEnabled: "lan.setEnabled",
   mobileRightbarSetEnabled: "mobile.rightbar.setEnabled",
   pinSetCustom: "pin.setCustom",
-  pocketReset: "pocket.reset",
-  // 移动端「复制文件内容」（issue #17）：手机经此 RPC 让主机读取文件正文，
-  // 再写入剪贴板——因为手机无法直接打开电脑上的文件。
-  fileRead: "pocket.fileRead"
+  pocketReset: "pocket.reset"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -103,13 +110,74 @@ function redactStatus(s) {
     tunnelUrl: s?.tunnelUrl ?? null,
     tunnelQr: s?.tunnelQr ?? null,
     tunnelState: s?.tunnelState ?? { phase: "idle" },
+    // 就绪度快照（自愈排障用；只有计数/时间戳/错误文案，无敏感信息）
+    tunnelHealth: s?.tunnelHealth ?? null,
     tunnelConfig: s?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false, frp: null },
     dshPort: s?.dshPort ?? null
   };
 }
 
 // client/mobile/MobileNavToggle.tsx
-var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+
+// client/mobile/icon-compat.mjs
+var MOBILE_ICON_CANDIDATES = {
+  panelLeft: [
+    "IconPanelLeftOutlineRegular",
+    "IconPanelLeftOutlineMedium",
+    "IconPanelLeftOutline16",
+    "IconPanelLeftOutline"
+  ],
+  download: [
+    "IconDownloadOutlineRegular",
+    "IconDownloadOutlineMedium",
+    "IconDownloadOutline16",
+    "IconDownloadOutline"
+  ],
+  folderOpen: [
+    "IconFolderOpenOutlineRegular",
+    "IconFolderOpenOutlineMedium",
+    "IconFolderOpenOutline16",
+    "IconFolderOpenOutline",
+    "IconFolderOpen"
+  ]
+};
+var MOBILE_ICON_FALLBACK = {
+  panelLeft: "\u2630",
+  download: "\u2913",
+  folderOpen: "\u25A4"
+};
+function isRenderableIcon(value) {
+  if (typeof value === "function") return true;
+  return typeof value === "object" && value !== null;
+}
+function pickIcon(registry, names) {
+  if (registry === null || typeof registry !== "object") return null;
+  for (const name2 of names) {
+    const candidate = registry[name2];
+    if (isRenderableIcon(candidate)) return candidate;
+  }
+  return null;
+}
+function resolveMobileIcons(registry) {
+  const resolved = {};
+  for (const [key, names] of Object.entries(MOBILE_ICON_CANDIDATES)) {
+    resolved[key] = pickIcon(registry, names);
+  }
+  return resolved;
+}
+
+// client/mobile/MobileIcon.tsx
+function MobileIcon({ icon, name: name2, size }) {
+  if (!isRenderableIcon(icon)) {
+    return /* @__PURE__ */ React.createElement("span", { "data-mobile-nav": "icon-fallback", "aria-hidden": "true", style: { fontSize: size, lineHeight: 1 } }, MOBILE_ICON_FALLBACK[name2]);
+  }
+  const Icon = icon;
+  return /* @__PURE__ */ React.createElement(Icon, { size });
+}
+
+// client/mobile/MobileNavToggle.tsx
+var icons = resolveMobileIcons(primitives);
 function MobileNavToggle({ toggleSidebar, t }) {
   const toggleExplorer = () => {
     const frame = document.querySelector('[data-mobile-nav="frame"]');
@@ -129,7 +197,7 @@ function MobileNavToggle({ toggleSidebar, t }) {
       title: t("open"),
       onClick: () => toggleSidebar()
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives.IconPanelLeftOutline16, { size: 16 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons.panelLeft, name: "panelLeft", size: 16 })
   ), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -139,17 +207,17 @@ function MobileNavToggle({ toggleSidebar, t }) {
       title: t("files"),
       onClick: toggleExplorer
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives.IconFolderOpenOutline16, { size: 16 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons.folderOpen, name: "folderOpen", size: 16 })
   ));
 }
 
 // client/mobile/MobileNavOverlay.tsx
 var import_react = require("react");
-var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives2 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
 
 // client/mobile/nav-targets.mjs
-var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > :first-child';
-var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"]';
+var DRAWER_SELECTOR = '[data-mobile-nav="frame"] > [class*="_sidebarCol"]';
+var TOGGLE_SELECTOR = '[data-mobile-nav="toggle"], [data-sidebar-opener]';
 var NAV_TARGETS = [
   "button[data-dsh-taskboard-entry]",
   "button[data-dsh-ssh-entry]",
@@ -181,6 +249,7 @@ function isOverlayTap(target) {
 }
 
 // client/mobile/MobileNavOverlay.tsx
+var icons2 = resolveMobileIcons(primitives2);
 var MOBILE_QUERY = "(max-width: 1023px)";
 function useMobile() {
   const [mobile, setMobile] = (0, import_react.useState)(() => window.matchMedia(MOBILE_QUERY).matches);
@@ -367,12 +436,13 @@ function MobileNavOverlay({ toggleSidebar, t }) {
       title: t("open"),
       onClick: () => toggleSidebar()
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives2.IconPanelLeftOutline16, { size: 18 })
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons2.panelLeft, name: "panelLeft", size: 18 })
   ));
 }
 
 // client/mobile/MobileDrawerFooter.tsx
-var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
+var primitives3 = __toESM(require("@deepseek-ai/dsh-client-ui-primitives"), 1);
+var icons3 = resolveMobileIcons(primitives3);
 function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t }) {
   const sessionId = useSessions((state) => state.current);
   const openExplorer = () => {
@@ -388,7 +458,7 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
       title: t("files"),
       onClick: openExplorer
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives3.IconPanelLeftOutline16, { size: 14 }),
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons3.panelLeft, name: "panelLeft", size: 14 }),
     /* @__PURE__ */ React.createElement("span", null, t("files"))
   ), /* @__PURE__ */ React.createElement(
     "button",
@@ -402,172 +472,36 @@ function MobileDrawerFooter({ useSessions, downloadSessionLog, toggleSidebar, t 
         if (sessionId !== void 0) downloadSessionLog(sessionId);
       }
     },
-    /* @__PURE__ */ React.createElement(import_dsh_client_ui_primitives3.IconDownloadOutline16, { size: 14 }),
+    /* @__PURE__ */ React.createElement(MobileIcon, { icon: icons3.download, name: "download", size: 14 }),
     /* @__PURE__ */ React.createElement("span", null, t("sessionLog"))
   ));
 }
 
-// client/mobile/fileGuard.ts
-var GUARD_MSG = "\u624B\u673A\u4E0A\u65E0\u6CD5\u76F4\u63A5\u6253\u5F00\u7535\u8111\u4E0A\u7684\u6587\u4EF6";
+// client/mobile/add-workspace.ts
 var WS_LABELS = ["\u6DFB\u52A0\u5DE5\u4F5C\u533A", "\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026", "Add workspace", "Add workspace\u2026"];
-var COPY_LABEL = "\u590D\u5236";
-function looksLikeFilePath(text) {
-  const t = (text ?? "").trim();
-  if (t.length < 3 || t.length > 320) return false;
-  if (/^(\/|~\/|\.\.?\/|[A-Za-z]:\\)/.test(t)) return true;
-  if (/\/[\w.\-]+\.\w{1,12}$/.test(t)) return true;
-  if (/[\w.\-]+\/[\w.\-]+\.\w{1,12}/.test(t)) return true;
-  return false;
-}
-async function copyText(text) {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
+function startAddWorkspaceHider() {
+  const checkOne = (node) => {
+    if (node.nodeType !== 1) return;
+    const el = node;
+    const txt = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim();
+    if (WS_LABELS.includes(txt)) {
+      el.style.display = "none";
+      el.setAttribute("data-mobile-nav-hide", "add-workspace");
     }
-  } catch {
-  }
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.top = "-9999px";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const okCopy = document.execCommand("copy");
-    ta.remove();
-    return okCopy;
-  } catch {
-    return false;
-  }
-}
-function startFileGuard(readFile) {
-  let toastEl = null;
-  let toastTimer = null;
-  const showToast = (text) => {
-    if (toastEl === null) {
-      toastEl = document.createElement("div");
-      toastEl.setAttribute("data-mobile-nav", "file-guard-toast");
-      Object.assign(toastEl.style, {
-        position: "fixed",
-        left: "50%",
-        bottom: "64px",
-        transform: "translateX(-50%)",
-        maxWidth: "84vw",
-        zIndex: "9999",
-        padding: "10px 14px",
-        borderRadius: "10px",
-        background: "rgba(20,22,28,.92)",
-        color: "#fff",
-        fontSize: "13px",
-        lineHeight: "1.4",
-        textAlign: "center",
-        fontFamily: "inherit",
-        boxShadow: "0 4px 16px rgba(0,0,0,.28)",
-        pointerEvents: "none",
-        opacity: "0",
-        transition: "opacity .18s ease"
+  };
+  const sel = '[role="menuitem"],[role="option"],li,button,a';
+  document.querySelectorAll(sel).forEach(checkOne);
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      m.addedNodes.forEach((n) => {
+        if (n.nodeType !== 1) return;
+        checkOne(n);
+        n.querySelectorAll?.(sel).forEach(checkOne);
       });
-      document.body.appendChild(toastEl);
     }
-    toastEl.textContent = text;
-    requestAnimationFrame(() => {
-      if (toastEl !== null) toastEl.style.opacity = "1";
-    });
-    if (toastTimer !== null) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => {
-      if (toastEl !== null) toastEl.style.opacity = "0";
-    }, 2600);
-  };
-  const onClick = (event) => {
-    const target = event.target;
-    if (target === null) return;
-    const el = target.closest("button, a");
-    if (el === null) return;
-    if (!looksLikeFilePath(el.textContent)) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    showToast(GUARD_MSG);
-  };
-  document.addEventListener("click", onClick, true);
-  const injectCopyButtons = () => {
-    const links = document.querySelectorAll("button, a");
-    links.forEach((el) => {
-      if (el.getAttribute("data-mobile-nav-copy") === "1") return;
-      const txt = (el.textContent ?? "").trim();
-      if (!looksLikeFilePath(txt)) return;
-      el.setAttribute("data-mobile-nav-copy", "1");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("data-mobile-nav", "copy-file");
-      btn.textContent = COPY_LABEL;
-      btn.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const filePath = (el.textContent ?? "").trim();
-        btn.disabled = true;
-        btn.textContent = "\u2026";
-        try {
-          const res = await readFile(filePath);
-          if (!res?.ok) {
-            showToast(res?.error?.message ?? "\u590D\u5236\u5931\u8D25");
-            return;
-          }
-          const content = res.value?.content ?? "";
-          const copied = await copyText(content);
-          if (copied) {
-            const kb = Math.max(1, Math.round((res.value?.size ?? content.length) / 1024));
-            showToast(`\u5DF2\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF08${kb} KB\uFF09`);
-          } else {
-            showToast("\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9");
-          }
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : "\u590D\u5236\u5931\u8D25");
-        } finally {
-          btn.disabled = false;
-          btn.textContent = COPY_LABEL;
-        }
-      });
-      el.parentElement?.insertBefore(btn, el.nextSibling);
-    });
-  };
-  injectCopyButtons();
-  const copyObserver = new MutationObserver(() => injectCopyButtons());
-  copyObserver.observe(document.body, { childList: true, subtree: true });
-  const hideWsEntries = () => {
-    const checkOne = (node) => {
-      if (node.nodeType !== 1) return;
-      const el = node;
-      const txt = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim();
-      if (WS_LABELS.includes(txt)) {
-        el.style.display = "none";
-        el.setAttribute("data-mobile-nav-hide", "add-workspace");
-      }
-    };
-    const sel = '[role="menuitem"],[role="option"],li,button,a';
-    document.querySelectorAll(sel).forEach(checkOne);
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        m.addedNodes.forEach((n) => {
-          if (n.nodeType !== 1) return;
-          checkOne(n);
-          n.querySelectorAll?.(sel).forEach(checkOne);
-        });
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  };
-  const disconnectWs = hideWsEntries();
-  return () => {
-    document.removeEventListener("click", onClick, true);
-    copyObserver.disconnect();
-    disconnectWs();
-    if (toastTimer !== null) window.clearTimeout(toastTimer);
-    toastEl?.remove();
-  };
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
 }
 
 // client/mobile/mobile.css.ts
@@ -742,11 +676,18 @@ var MOBILE_CSS = `
     padding-top: env(safe-area-inset-top, 0px) !important;
   }
 
-  /* \u4E3B\u5185\u5BB9\u5217\uFF08\u7B2C 2 \u4E2A\u7F51\u683C\u5B50\u5143\u7D20\uFF09\u5728\u5B98\u65B9\u6837\u5F0F\u91CC\u6709\u663E\u5F0F grid-column: 2\u2014\u2014
+  /* \u4E3B\u5185\u5BB9\u5217\u5728\u5B98\u65B9\u6837\u5F0F\u91CC\u6709\u663E\u5F0F grid-column: 2\u2014\u2014
      \u7F51\u683C\u88AB\u538B\u7F29\u6210 [1fr, 0, 0] \u540E\u5B83\u4F1A\u843D\u5728 0px \u7684\u7B2C 2 \u8F68\uFF0C\u6574\u4E2A\u4E3B\u754C\u9762\u88AB\u6324\u51FA
      \u89C6\u53E3\uFF08\u53EA\u5269\u80CC\u666F\u56FE\uFF09\u3002\u5FC5\u987B\u663E\u5F0F\u628A\u5B83\u62C9\u56DE\u7B2C 1 \u8F68\uFF08issue #5\uFF09\u3002
-     \u7B2C 3 \u5217\uFF08details\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002 */
-  [data-mobile-nav="frame"] > :nth-child(2) {
+     \u7B2C 3 \u5217\uFF08details\uFF09\u4FDD\u6301 0 \u8F68\u5373\u53EF\uFF0C\u65E0\u9700\u5904\u7406\u3002
+
+     DSH 0.2.2 \u8D77\u8FD9\u4E00\u884C\u4E0D\u80FD\u518D\u6309\u300C\u7B2C\u51E0\u4E2A\u5B50\u5143\u7D20\u300D\u5B9A\u4F4D\uFF1A\u5B98\u65B9 AppFrame \u5728\u7A84\u5C4F
+     \u5F00\u542F\u4E86\u81EA\u5E26\u7684\u62BD\u5C49\uFF08.frame[data-sidebar-drawer]\uFF09\uFF0C\u5E76\u63D2\u5165\u4E86\u4E00\u4E2A
+     div[data-sidebar-mask] \u4F5C\u4E3A frame \u7684\u7B2C\u4E00\u4E2A\u5B50\u5143\u7D20\uFF0C\u4E8E\u662F
+     > :nth-child(2) \u4ECE\u4E3B\u5185\u5BB9\u5217\u53D8\u6210\u4E86\u4FA7\u8FB9\u680F\u5217\uFF0C\u4E3B\u5185\u5BB9\u5217\u7559\u5728 0px \u7684\u7B2C 2 \u8F68
+     \u2014\u2014 \u624B\u673A\u4E0A\u6574\u4E2A\u4F1A\u8BDD\u754C\u9762\u6D88\u5931\uFF08\u53EA\u5269\u80CC\u666F\uFF09\u3002\u6539\u7528\u5B98\u65B9\u7C7B\u540D\u540E\u7F00\u5B9A\u4F4D\uFF0C\u4E0E\u5143\u7D20
+     \u987A\u5E8F\u89E3\u8026\uFF08\u7C7B\u540D\u5F62\u5982 gURaQa_centerCol\uFF0C\u54C8\u5E0C\u524D\u7F00\u6BCF\u6B21\u6784\u5EFA\u90FD\u4F1A\u53D8\uFF09\u3002 */
+  [data-mobile-nav="frame"] > [class*="_centerCol"] {
     grid-column: 1 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
@@ -774,8 +715,13 @@ var MOBILE_CSS = `
      details pane 1000 and its full-screen frame ::after mask 1050 (issue
      #67: that mask sat on top of the 600 drawer and ate every tap). Still
      far under the fixed-position banners/toasts (z 9999) that float at the
-     viewport level. */
-  [data-mobile-nav="frame"] > :first-child {
+     viewport level.
+     Also positional-free since DSH 0.2.2: the first child is the native
+     div[data-sidebar-mask] in drawer mode, not the sidebar column, so the
+     drawer styling used to land on the mask (an opaque 92vw sheet) while the
+     real sidebar column stayed in the grid. Target the official class suffix
+     instead (gURaQa_sidebarCol; the hash prefix changes every build). */
+  [data-mobile-nav="frame"] > [class*="_sidebarCol"] {
     position: absolute !important;
     inset: 0 auto 0 0 !important;
     width: max-content !important;
@@ -796,6 +742,50 @@ var MOBILE_CSS = `
     border-right: none !important;
   }
 
+  /* Portaled popovers must paint ABOVE the drawer.
+     DSH's popover primitives render into <body> on one fixed layer:
+       Menu.tsx:572   createPortal(list, document.body)      -> role="menu", z 1100
+       Tooltip.tsx:270 createPortal(content, document.body)  -> role="tooltip" [data-portal], z 1100
+       Toast.tsx:75   createPortal(<div role="alert">)        -> role="alert", z 1100
+     (packages/client/ui-primitives/src/Menu.module.css:45 .portal, and
+     Tooltip.module.css:28 .bubble[data-portal], both z-index: 1100).
+     The drawer above is 1200, so every menu opened from a drawer control is
+     painted UNDER it:
+       - the panel list's \u300C\u66F4\u591A\u300D (SidebarRoot PanelMoreMenu, align=start /
+         side=bottom) opens downward inside the 280px drawer and is fully
+         covered \u2014 the button looks dead;
+       - a session row's kebab (ui-workspace rows/Rows.tsx:760, align=end) opens
+         at the row's right edge, so only the sliver spilling past the drawer
+         edge shows \u2014 the menu looks cut off.
+     Lift the body-level popover layer above the drawer: 1220 clears every DSH
+     portal layer (menu/tooltip/toast 1100) and still sits far below the
+     viewport-level banners/toasts (z 9999). */
+  body > [role="menu"],
+  body > [role="listbox"],
+  body > [role="tooltip"],
+  body > [data-portal],
+  body > [role="alert"] {
+    z-index: 1220 !important;
+  }
+
+  /* Full-screen modal surfaces outrank the drawer as well.
+     SettingsRoot portals its overlay beside #root (SettingsRoot.tsx:70 ->
+     document.body) at z-index 1000 (SettingsRoot.module.css:63 .overlay), and
+     the Modal primitive's root is 1000 too (Modal.module.css:10) \u2014 both under
+     the 1200 drawer. Opening \u8BBE\u7F6E while the drawer is out therefore leaves the
+     drawer painted over the sheet: its title, its close button and the whole
+     left column disappear behind the 280px rail.
+     Matched by shape rather than a CSS-modules hash (those rotate on every
+     build): a body-level presentation root holding a modal dialog, plus the
+     dialog roots that are portaled on their own (PlatformOverlay.tsx:69 is
+     <div role="dialog" aria-modal="true"> itself, at z-index 1001). Popovers
+     opened from inside such a sheet stay one step higher (1220) so a dropdown
+     still clears the sheet that owns it. */
+  body > [role="presentation"]:has([aria-modal="true"]),
+  body > [role="dialog"][aria-modal="true"] {
+    z-index: 1210 !important;
+  }
+
   /* Expanded state (frame without data-sidebar-collapsed) slides the drawer in.
      The open state must be transform:none \u2014 NOT translateX(0): an identity
      transform still makes the drawer the containing block for fixed-position
@@ -805,8 +795,17 @@ var MOBILE_CSS = `
      overflow:hidden drawer to scrollLeft=102, and every static child (plus the
      fixed overlay) shifts 102px off-screen. With transform:none the overlay is
      viewport-anchored: it dims the full screen and the sheet sits at left:8. */
-  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > :first-child {
+  [data-mobile-nav="frame"]:not([data-sidebar-collapsed]) > [class*="_sidebarCol"] {
     transform: none !important;
+  }
+
+  /* DSH 0.2.2's native drawer ships its own backdrop, and it is not a
+     passive layer: it calls toggleSidebar() on tap. We render our own
+     backdrop and close on outside taps in JS, so a tap on theirs toggles the
+     drawer twice (close then reopen) \u2014 the drawer looks stuck open. Drop it
+     and keep ours, exactly like the dsh-web-ui-all mask below (issue #67). */
+  [data-mobile-nav="frame"] > [data-sidebar-mask] {
+    display: none !important;
   }
 
   /* Kill a competing full-screen mask (issue #67).
@@ -876,7 +875,7 @@ var MOBILE_CSS = `
     white-space: nowrap !important;
   }
 
-  [data-phase] [class$="_scroll"]:has(p) {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) {
     padding-left: 20px !important;
     padding-right: 20px !important;
     font-size: 15px !important;
@@ -885,9 +884,9 @@ var MOBILE_CSS = `
      list items, so the container's inherited 15px is not enough. User
      messages render their text in a div whose class carries _text_
      (16px too) \u2014 cover it as well. */
-  [data-phase] [class$="_scroll"]:has(p) p,
-  [data-phase] [class$="_scroll"]:has(p) li,
-  [data-phase] [class$="_scroll"]:has(p) [class*="_text_"] {
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) p,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) li,
+  [data-phase] [class$="_scroll"]:has(p):not([data-input-scroll]) [class*="_text_"] {
     font-size: 15px !important;
   }
 
@@ -910,12 +909,23 @@ var MOBILE_CSS = `
   }
 
   /* --- Composer bottom row on mobile ---
-     Keep add, permission, model, reasoning and send controls on one line at
-     the Honor 50's 360px CSS viewport. DSH's stable data-composer-card hook
-     survives the editor's textarea -> contenteditable migration. */
+     Let the row wrap instead of locking it to one line (issue #170): any
+     plugin can register extra non-shrinking controls here, and a hard
+     "nowrap" plus ":last-child { flex:1 1 0 }" squeezed the model pill (long
+     text, max-width:220px upstream) down to 0 width at 360px. Allowing
+     wrap keeps every control visible; the row simply spans two lines on
+     narrow screens. DSH's stable data-composer-card hook survives the
+     editor's textarea -> contenteditable migration. */
   [data-phase] [data-composer-card="true"] > [class$="_row"] {
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     gap: 6px !important;
+    /* issue #181\uFF1A\u5BBF\u4E3B/\u76AE\u80A4\u628A\u63A7\u5236\u884C\u9AD8\u5EA6\u9489\u5728 28px\uFF0C\u53EA\u8BA9 flex-wrap \u6362\u884C\u4F1A\u628A
+       \u7B2C\u4E8C\u884C\u5185\u5BB9\u88C1\u6389\uFF08\u5B9E\u6D4B scrollHeight 58 / clientHeight 28\uFF09\u3002\u6362\u884C\u5FC5\u987B\u914D\u4E0A
+       \u81EA\u9002\u5E94\u9AD8\u5EA6\uFF0C\u624D\u65E2\u4FDD\u4F4F #170\u300C\u6A21\u578B\u836F\u4E38\u4E0D\u88AB\u538B\u6210 0 \u5BBD\u300D\uFF0C\u53C8\u4E0D\u541E\u6389\u63A7\u4EF6\u3002 */
+    height: auto !important;
+    min-height: 28px !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   [data-phase] [data-composer-card="true"] > [class$="_row"] > :first-child {
     gap: 8px !important;
@@ -925,10 +935,24 @@ var MOBILE_CSS = `
     flex: 0 1 auto !important;
     min-width: 0 !important;
   }
-  [data-phase] [data-composer-card="true"] > [class$="_row"] > :last-child {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    gap: 6px !important;
+
+  /* --- \u62BD\u5C49\u91CC\u7684\u5DE5\u4F5C\u533A\u4E0D\u80FD\u88AB\u4E0A\u4E0B\u56FA\u5B9A\u533A\u5757\u6324\u6CA1\uFF08issue #196\uFF09---
+     \u7A84\u5C4F\u62BD\u5C49\u9AD8\u5EA6\u56FA\u5B9A 100%\uFF0C\u4E0A\u90E8\u63D2\u4EF6\u5165\u53E3\u533A\u4E0E\u5E95\u90E8 footer \u90FD\u662F flex:none\uFF0C
+     \u4E2D\u95F4\u7684 regionArea \u662F flex:1; min-height:0\uFF0C\u5728\u77EE\u5C4F\uFF08\u5982 iPhone SE\uFF09\u4F1A\u88AB\u538B\u5230
+     0 \u9AD8\uFF0C\u4F1A\u8BDD\u5217\u8868\u5B8C\u5168\u70B9\u4E0D\u5230\u3002\u7ED9\u5DE5\u4F5C\u533A\u4E00\u4E2A\u4FDD\u5E95\u9AD8\u5EA6\uFF0C\u5E76\u8BA9\u5B83\u6240\u5728\u7684\u4FA7\u680F\u5217\u53EF\u6EDA\u52A8\u3002
+     \u7528 :has(> ...) \u5B9A\u4F4D\u5217\u6839\uFF1AsidebarCol \u4E0E\u771F\u6B63\u7684\u4FA7\u680F\u6839\u4E4B\u95F4\u9694\u7740\u4E00\u5C42
+     display:contents \u7684\u63D2\u69FD\u5305\u88C5\uFF0C\u7528\u5B50\u5143\u7D20\u5E8F\u53F7\u4F1A\u9009\u9519\u3002 */
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"]) {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: none !important;
+  }
+  [data-mobile-nav="frame"] :has(> [class$="_regionArea"])::-webkit-scrollbar {
+    display: none !important;
+  }
+  [data-mobile-nav="frame"] [class$="_regionArea"] {
+    min-height: min(55vh, 420px) !important;
   }
 
   /* --- Composer popups as bottom sheets on mobile ---
@@ -985,6 +1009,36 @@ var MOBILE_CSS = `
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
+  /* The header's leading cluster must SCROLL on a phone instead of painting over
+     its neighbours. DSH's title row is a flex row whose every cluster is
+     flex: none (ui-conversation ConversationRoot.module.css: titleRow /
+     titleCluster / headerUtilities / headerCorner), and it never clips: when the
+     crumbs plus the slot chips do not fit, the overflowing cluster simply draws
+     on top of the next one \u2014 on a phone \u300CN \u4E2A\u5B50\u667A\u80FD\u4F53\u300D ends up printed over
+     \u300CN \u4E2A\u540E\u53F0\u4EFB\u52A1\u8FD0\u884C\u4E2D\u300D, and the trailing corner control is covered as well.
+     Giving the flexible cluster overflow-x: auto clips its own content at its
+     own edge and makes the chips reachable by swiping, while the utilities and
+     the corner seat stay pinned and always tappable. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  /* Children keep their intrinsic width; shrinking is what produced the pile-up. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"] > * {
+    flex: 0 0 auto !important;
+  }
+  /* 3px thumb: a 36px header has no room for a full-size scrollbar. Styling
+     ::-webkit-scrollbar also opts the phone out of overlay scrollbars, so the
+     hint that the row scrolls stays visible instead of only appearing mid-swipe. */
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"]::-webkit-scrollbar {
+    height: 3px;
+  }
+  [data-phase] header [class$="_titleRow"] [class$="_titleCluster"]::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background: var(--dsw-alias-scrollbar-bg-l2, rgba(255, 255, 255, 0.28));
+  }
   /* The directory toggle sits at the far left of the header (the header
      is position:relative; the data-slot wrappers are display:contents). */
   [data-mobile-nav="toggle"] {
@@ -992,6 +1046,19 @@ var MOBILE_CSS = `
     left: 8px !important;
     top: 12px !important;
     z-index: 2 !important;
+  }
+  /* DSH 0.2.2 ships its own narrow-screen drawer opener in the frame's leading
+     seat (button[data-sidebar-opener], ui-sidebar HeaderLeadingControls.tsx:36)
+     and mounts it for every phase whenever the frame is in drawer mode. It sits
+     in the very same top-left corner and calls the very same toggleSidebar(),
+     so keeping ours would stack two identical buttons in one spot plus a third
+     floating one under them. The host control wins; ours step aside.
+     Gated on :has() so a host WITHOUT an opener (pre-0.2.2) still gets both
+     fallbacks \u2014 the floating button is also the only opener on the hero page
+     there, since no session header exists to host the header toggle. */
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="toggle"],
+  [data-mobile-nav="frame"]:has([data-sidebar-opener]) [data-mobile-nav="fab"] {
+    display: none !important;
   }
   /* The Files action sits at the FAR RIGHT of the header so it reads as a
      distinct control from the directory toggle on the left (which opens
@@ -1043,14 +1110,13 @@ var MOBILE_CSS = `
     border-radius: 14px !important;
     animation: dsh-mobile-nav-sheet-in .22s var(--ds-ease-out, ease-in-out);
   }
-  /* The settings sheet's dimmed mask fades in with the panel (the mask is
-     the first child of the overlay that directly contains the sheet). */
-  :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
-    animation: dsh-mobile-nav-fade .18s var(--ds-ease-out, ease-in-out);
-  }
+  /* \u906E\u7F69\u6DE1\u5165\u539F\u672C\u5199\u5728 :has() \u91CC\u518D\u5D4C\u4E00\u5C42 :has() \u2014\u2014 CSS \u89C4\u8303\u4E0D\u5141\u8BB8\u5D4C\u5957 :has()\uFF0C
+     \u6574\u6761\u9009\u62E9\u5668\u65E0\u6548\u3001\u4ECE\u672A\u751F\u6548\uFF1B\u66F4\u7CDF\u7684\u662F\u5B83\u548C\u4E0B\u9762\u7684 reduced-motion \u89C4\u5219\u540C\u5904\u4E00\u4E2A
+     \u9017\u53F7\u7EC4\uFF0Cinvalid selector \u4F1A\u8BA9\u6574\u7EC4\u89C4\u5219\u4E00\u8D77\u88AB\u4E22\u5F03\u3002\u8FD9\u91CC\u5220\u6389\u6B7B\u89C4\u5219\uFF0C\u8BA9
+     reduced-motion \u771F\u6B63\u751F\u6548\u3002\u771F\u8981\u6062\u590D\u906E\u7F69\u52A8\u753B\uFF0C\u8BF7\u7528\u5BBF\u4E3B\u66B4\u9732\u7684\u7A33\u5B9A data \u94A9\u5B50\uFF0C
+     \u4E0D\u8981\u518D\u8D4C\u5D4C\u5957\u9009\u62E9\u5668\u3002 */
   @media (prefers-reduced-motion: reduce) {
-    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])),
-    :has(> [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"]))) > :first-child {
+    [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])) {
       animation: none !important;
     }
   }
@@ -1402,9 +1468,25 @@ var MOBILE_CSS = `
      targeted). Layout: ONE fixed-height (28px) flex strip that scrolls
      horizontally \u2014 the full metrics stream stays reachable by swiping,
      the row never grows vertically, no ellipsis or fade, 12px gaps
-     between metric groups, a 2px scrollbar as the swipe affordance. */
+     between metric groups, a 2px scrollbar as the swipe affordance.
 
-  [data-mobile-nav="stats"] {
+     Opt-out: the strip is scoped under body:not([data-pocket-stats="off"])
+     so a skin/operator plugin can legally reclaim this 28px band by
+     setting document.body.dataset.pocketStats = 'off' (avoids the
+     !important weight war that let two footers print on top of each
+     other \u2014 issue #165). Default behavior is unchanged.
+
+     Opt-out is two halves, not one. The rules above only stand pocket's
+     styling down; the row itself is the CORE's (conversation StatsPills
+     dock), so it keeps occupying the band with the core's own styling and
+     still collides with whoever took the band over (issue #172).
+     [data-mobile-nav="stats"] is a mark pocket writes itself
+     (mobile-apply.tsx), so opting out hides that element too \u2014 together with
+     the core readouts it carries (turns / steps / LLM time / TTFT / cache) and
+     the TPS figure pocket folds into it. That is what reclaiming the band
+     costs: whoever takes it over renders their own footer. */
+
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] {
     display: flex !important;
     flex-flow: row nowrap !important;
     align-items: center !important;
@@ -1426,17 +1508,17 @@ var MOBILE_CSS = `
     line-height: 20px !important;
     font-size: 12px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar {
     height: 2px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-thumb {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar-thumb {
     background: var(--dsw-alias-label-tertiary, rgba(0, 0, 0, .3)) !important;
     border-radius: 2px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-track {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"]::-webkit-scrollbar-track {
     background: transparent !important;
   }
-  [data-mobile-nav="stats"] > * {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] > * {
     display: flex !important;
     flex: 0 0 auto !important;
     flex-flow: row nowrap !important;
@@ -1448,11 +1530,23 @@ var MOBILE_CSS = `
     margin-right: 12px !important;
     padding: 0 !important;
   }
-  [data-mobile-nav="stats"] > *:last-child {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] > *:last-child {
     margin-right: 0 !important;
   }
-  [data-mobile-nav="stats"] * {
+  body:not([data-pocket-stats="off"]) [data-mobile-nav="stats"] * {
     white-space: nowrap !important;
+  }
+
+  /* The other half of that opt-out: standing pocket's styling down leaves
+     the core's own row in the band, so a skin that took the band over still
+     prints underneath it (issue #172). [data-mobile-nav="stats"] is a mark
+     pocket writes itself (mobile-apply.tsx) \u2014 opting out hides it with the
+     mark, and with it the core readouts that row carries. The default path
+     never matches this rule.
+     (A skin that wants the band *and* the row can take it back with an equally
+     specific rule plus !important \u2014 this rule carries no extra specificity.) */
+  body[data-pocket-stats="off"] [data-mobile-nav="stats"] {
+    display: none !important;
   }
 
   /* ---------- hero composer on mobile ----------
@@ -1491,44 +1585,13 @@ var MOBILE_CSS = `
 
   /* ---------- \u9690\u85CF\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u300D\u5165\u53E3\uFF08\u624B\u673A\u4E0A\u914D\u5DE5\u4F5C\u533A\u65E0\u610F\u4E49\uFF0Cissue #17 \u4FEE\u6B63\uFF09 ----------
      \u56FE\u6807\u6309\u94AE\u7684 aria-label \u968F\u8BED\u8A00\u53D8\u5316\uFF08zh\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u300D/ en\u300CAdd workspace\u300D\uFF09\uFF0C
-     \u4E24\u79CD\u90FD\u8986\u76D6\uFF1B\u4E0B\u62C9\u83DC\u5355\u91CC\u7684\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026\u300D\u9879\u7531 fileGuard.ts \u7684 MutationObserver
+     \u4E24\u79CD\u90FD\u8986\u76D6\uFF1B\u4E0B\u62C9\u83DC\u5355\u91CC\u7684\u300C\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026\u300D\u9879\u7531 add-workspace.ts \u7684 MutationObserver
      \u6309\u6587\u6848\u515C\u5E95\u9690\u85CF\uFF08CSS \u9009\u4E0D\u5230\u7EAF\u6587\u672C\u8282\u70B9\uFF09\u3002\u53EA\u5728\u7A84\u5C4F\u751F\u6548\u2014\u2014\u684C\u9762\u7AEF\u7167\u5E38\u4FDD\u7559\u3002 */
   button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A"],
   button[aria-label="\u6DFB\u52A0\u5DE5\u4F5C\u533A\u2026"],
   button[aria-label="Add workspace"],
   button[aria-label="Add workspace\u2026"] {
     display: none !important;
-  }
-
-  /* ---------- \u6587\u4EF6\u94FE\u63A5\u65C1\u7684\u300C\u590D\u5236\u300D\u6309\u94AE\uFF08issue #17\uFF1A\u590D\u5236\u6587\u4EF6\u5185\u5BB9\uFF09 ----------
-     \u6302\u5728\u5BF9\u8BDD\u91CC\u7684\u6587\u4EF6\u94FE\u63A5\uFF08<button>/<a>\uFF0C\u6587\u6848\u5373\u8DEF\u5F84\uFF09\u7D27\u90BB\u4F4D\u7F6E\uFF0C\u7531 fileGuard.ts
-     \u6CE8\u5165\u3002\u53EA\u5C4F\u5185\u53EF\u89C1\uFF1A\u684C\u9762\u7AEF\u4E0D\u6CE8\u5165\u3001\u4E0D\u663E\u793A\uFF1B\u8FD9\u91CC\u518D\u515C\u5E95\u4E00\u5C42\uFF0C\u907F\u514D\u4EFB\u4F55\u9057\u6F0F\u3002
-     \u6587\u4EF6\u94FE\u63A5\u591A\u4E3A inline\uFF0C\u6309\u94AE\u7528 inline-flex \u7D27\u8DDF\u5176\u540E\u5373\u53EF\u3002 */
-  [data-mobile-nav="copy-file"] {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    margin-left: 6px !important;
-    vertical-align: baseline !important;
-    height: 22px !important;
-    padding: 0 8px !important;
-    border: 1px solid var(--dsw-alias-border-l1, rgba(0, 0, 0, .14)) !important;
-    border-radius: 6px !important;
-    background: var(--dsw-alias-bg-layer-1, #fff) !important;
-    color: var(--dsw-alias-label-primary, inherit) !important;
-    font-family: inherit !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    cursor: pointer !important;
-    -webkit-tap-highlight-color: transparent !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .12) !important;
-  }
-  [data-mobile-nav="copy-file"]:active {
-    background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, .06)) !important;
-  }
-  [data-mobile-nav="copy-file"][disabled] {
-    opacity: .55 !important;
-    cursor: default !important;
   }
 }
 
@@ -1562,7 +1625,7 @@ var MOBILE_CSS = `
 `;
 
 // client/mobile/locales.ts
-var NS = "mobileNav";
+var NS = "pocketMobileNav";
 var zh = {
   "open": "\u6253\u5F00\u76EE\u5F55",
   "close": "\u6536\u8D77\u76EE\u5F55",
@@ -1576,6 +1639,13 @@ var en = {
   "backdrop": "Click to close directory",
   "sessionLog": "Session log",
   "files": "Files"
+};
+var ja = {
+  "open": "\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3092\u958B\u304F",
+  "close": "\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3092\u9589\u3058\u308B",
+  "backdrop": "\u30AF\u30EA\u30C3\u30AF\u3067\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3092\u9589\u3058\u308B",
+  "sessionLog": "\u30BB\u30C3\u30B7\u30E7\u30F3\u30ED\u30B0\u3092\u30A8\u30AF\u30B9\u30DD\u30FC\u30C8",
+  "files": "\u30D5\u30A1\u30A4\u30EB"
 };
 
 // client/mobile/layout-mode.mjs
@@ -1616,7 +1686,7 @@ function mobileApply(ctx) {
     }, removeEventListener: () => {
     } };
   }
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-mobile-nav: dictionaries");
+  ctx.effect(() => ctx.locale.register(NS, { zh, en, ja }), "dsh-mobile-nav: dictionaries");
   ctx.effect(() => {
     let active = true;
     const applyEnabled = (enabled) => {
@@ -1800,28 +1870,24 @@ function mobileApply(ctx) {
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
-    const getWorkspaceCwd = () => {
+    let active = true;
+    let dispose = null;
+    const load = async () => {
       try {
-        const ws = ctx.get?.("workspaces") ?? ctx.workspaces;
-        const list = ws?.list;
-        const arr = Array.isArray(list) ? list : list && typeof list === "object" && "value" in list ? list.value : null;
-        if (Array.isArray(arr)) {
-          for (const w of arr) {
-            const c = w?.cwd ?? w?.root;
-            if (typeof c === "string" && c) return c;
-          }
+        const result = await ctx.connection.rpc.call(POCKET_RPC_CHANNEL, POCKET_ENDPOINTS.status, {});
+        if (!active) return;
+        if (result?.ok === true && result.value?.desktop === true) {
+          dispose = startAddWorkspaceHider();
         }
       } catch {
       }
-      return "";
     };
-    const readFile = (filePath) => ctx.connection.rpc.call(
-      POCKET_RPC_CHANNEL,
-      POCKET_ENDPOINTS.fileRead,
-      { path: filePath, cwd: getWorkspaceCwd() }
-    );
-    return startFileGuard(readFile);
-  }, "dsh-mobile-nav: file open guard + copy button + hide add-workspace (issue #17)");
+    void load();
+    return () => {
+      active = false;
+      dispose?.();
+    };
+  }, "dsh-mobile-nav: hide add-workspace on desktop hosts only (issue #17 #205)");
   ctx.effect(() => {
     if (!narrow.matches) return () => {
     };
@@ -1921,6 +1987,7 @@ var zh2 = {
   "resetFailed": "\u274C \u6062\u590D\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5",
   "lanTitle": "\u{1F4F6} \u5C40\u57DF\u7F51\uFF08\u540C\u4E00 WiFi\uFF09",
   "lanHint": "\u624B\u673A\u8FDE\u63A5\u540C\u4E00 WiFi \u540E\u626B\u7801\u5373\u53EF\u6253\u5F00",
+  "qrFailed": "\u4E8C\u7EF4\u7801\u751F\u6210\u5931\u8D25\uFF1A\u901A\u5E38\u662F\u7F3A\u5C11 qrcode \u4F9D\u8D56\u3002\u8BF7\u7528 dsh plugin add \u5B89\u88C5\uFF0C\u6216\u5728\u63D2\u4EF6\u76EE\u5F55\u6267\u884C npm install --omit=dev \u540E\u91CD\u542F",
   "lanAccess": "\u5C40\u57DF\u7F51\u8BBF\u95EE",
   "lanDisabledHint": "\u{1F512} \u5C40\u57DF\u7F51\u8BBF\u95EE\u5DF2\u5173\u95ED\uFF1A\u624B\u673A\u626B\u7801/\u94FE\u63A5\u5747\u4E0D\u53EF\u7528\uFF08\u516C\u7F51\u4E0D\u53D7\u5F71\u54CD\uFF09\u3002\u70B9\u300C\u5F00\u300D\u6062\u590D\u3002",
   "lanToggleTitleOff": "\u5173\u95ED\u5C40\u57DF\u7F51\u8BBF\u95EE",
@@ -1942,6 +2009,8 @@ var zh2 = {
   "cancel": "\u53D6\u6D88",
   "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8\u201364 \u4F4D\u82F1\u6587\u5B57\u6BCD\u6216\u6570\u5B57",
   "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
+  "pinShow": "\u663E\u793A",
+  "pinHide": "\u9690\u85CF",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "mobileRightbar": "\u624B\u673A\u7AEF\u53F3\u8FB9\u680F",
@@ -1954,6 +2023,8 @@ var zh2 = {
   "stopTunnel": "\u5173\u95ED\u516C\u7F51",
   "enable": "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE",
   "opening": "\u5F00\u542F\u4E2D\u2026",
+  "reconnecting": "\u91CD\u8FDE\u4E2D\u2026",
+  "stopReconnect": "\u505C\u6B62\u91CD\u8FDE",
   "tunnelMode": "\u516C\u7F51\u6A21\u5F0F\uFF1A",
   "modeQuick": "\u968F\u673A\u57DF\u540D\uFF08\u9ED8\u8BA4\uFF09",
   "modeNamed": "\u56FA\u5B9A\u57DF\u540D",
@@ -2035,6 +2106,7 @@ var en2 = {
   "resetFailed": "\u274C Reset failed \u2014 please retry",
   "lanTitle": "\u{1F4F6} LAN (same Wi-Fi)",
   "lanHint": "Scan to open once your phone is on the same Wi-Fi",
+  "qrFailed": "QR generation failed: the qrcode dependency is usually missing. Install via dsh plugin add, or run npm install --omit=dev in the plugin directory and restart",
   "lanAccess": "LAN access",
   "lanDisabledHint": '\u{1F512} LAN access is off \u2014 the QR code and link are unavailable (public access is unaffected). Tap "On" to restore.',
   "lanToggleTitleOff": "Turn off LAN access",
@@ -2056,6 +2128,8 @@ var en2 = {
   "cancel": "Cancel",
   "pinInvalid": "PIN must be 8\u201364 characters (letters and digits only)",
   "pinCustomHint": "custom PINs are not rotated on tunnel start",
+  "pinShow": "Show",
+  "pinHide": "Hide",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
   "lanStarting": "Proxy starting\u2026",
   "mobileRightbar": "Mobile right sidebar",
@@ -2068,6 +2142,8 @@ var en2 = {
   "stopTunnel": "Stop",
   "enable": "Enable anywhere",
   "opening": "Enabling\u2026",
+  "reconnecting": "Reconnecting\u2026",
+  "stopReconnect": "Stop reconnecting",
   "tunnelMode": "Mode:",
   "modeQuick": "Random URL (default)",
   "modeNamed": "Fixed domain",
@@ -2109,6 +2185,125 @@ var en2 = {
   "unknownError": "unknown error",
   "feedback": "\u{1F64F} Questions? Open an issue on GitHub"
 };
+var ja2 = {
+  "section": "\u30B9\u30DE\u30DB\u30A2\u30AF\u30BB\u30B9",
+  "title": "\u{1F4F1} \u30B9\u30DE\u30DB\u30A2\u30AF\u30BB\u30B9",
+  "subtitle": "\u30B9\u30DE\u30DB\u3067\u8AAD\u307F\u53D6\u308B\u3068 PC \u3068\u540C\u3058\u753B\u9762\u304C\u305D\u306E\u307E\u307E\u8868\u793A\u3055\u308C\u3001\u30EA\u30A2\u30EB\u30BF\u30A4\u30E0\u306B\u540C\u671F\u3057\u307E\u3059",
+  "developer": "\u958B\u767A\u8005\uFF1A\u5C11\u5317\u6668\uFF08shaobeichen\uFF09",
+  "starAsk": "\u2B50 \u5F79\u306B\u7ACB\u3063\u305F\u3089 Star \u3092\u3069\u3046\u305E \u2014 \u4F5C\u8005\u304C\u4E00\u65E5\u559C\u3073\u307E\u3059",
+  "starCta": "\u2605 Star \u3092\u8D08\u308B",
+  "restarted": "\u{1F504} \u518D\u8D77\u52D5\u3057\u307E\u3057\u305F",
+  "ok": "\u308F\u304B\u308A\u307E\u3057\u305F",
+  "bgHint": "\u30D7\u30ED\u30BB\u30B9\u306F\u30D0\u30C3\u30AF\u30B0\u30E9\u30A6\u30F3\u30C9\u3067\u5B9F\u884C\u4E2D\u3067\u3059\uFF08\u30BF\u30FC\u30DF\u30CA\u30EB\u306B\u306F\u63A5\u7D9A\u3055\u308C\u3066\u3044\u307E\u305B\u3093\uFF09\u3002\u505C\u6B62\u65B9\u6CD5\uFF1A{cmd}",
+  "updatedRestart": "\u2705 v{ver} \u306B\u66F4\u65B0\u3057\u307E\u3057\u305F \u2014 \u518D\u8D77\u52D5\u3067\u53CD\u6620\u3055\u308C\u307E\u3059",
+  "updateAutoRestarting": "\u2705 v{ver} \u306B\u66F4\u65B0\u3057\u307E\u3057\u305F \u2014 \u81EA\u52D5\u3067\u518D\u8D77\u52D5\u3057\u3066\u3044\u307E\u3059\u2026",
+  "updatedOk": "\u2705 v{ver} \u306B\u66F4\u65B0\u3057\u307E\u3057\u305F",
+  "updateAvailable": "\u{1F4E6} \u65B0\u3057\u3044\u30D0\u30FC\u30B8\u30E7\u30F3 v{ver} \u304C\u3042\u308A\u307E\u3059",
+  "updating": "\u66F4\u65B0\u4E2D\u2026",
+  "updateTo": "v{ver} \u306B\u66F4\u65B0",
+  "restartingNow": "\u53CD\u6620\u306E\u305F\u3081\u518D\u8D77\u52D5\u3057\u3066\u3044\u307E\u3059\u2026",
+  "restarting": "\u518D\u8D77\u52D5\u4E2D\u2026",
+  "restartNow": "\u{1F504} dsh web \u3092\u518D\u8D77\u52D5\u3057\u3066\u53CD\u6620",
+  "updatingDetail": "\u23F3 \u66F4\u65B0\u4E2D\uFF08\u901A\u5E38 1\u301C2 \u5206\uFF09\xB7 {s} \u79D2\u7D4C\u904E",
+  "restartingDetail": "\u23F3 \u53CD\u6620\u306E\u305F\u3081\u518D\u8D77\u52D5\u4E2D\uFF08\u901A\u5E38 10\u301C30 \u79D2\uFF09\xB7 {s} \u79D2\u7D4C\u904E",
+  "updatedAutoDetail": "\u2705 \u66F4\u65B0\u5B8C\u4E86 \u2014 \u81EA\u52D5\u3067\u518D\u8D77\u52D5\u3057\u3066\u3044\u307E\u3059\u3002\u5C11\u3057\u5F85\u3063\u3066\u304B\u3089\u30DA\u30FC\u30B8\u3092\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044",
+  "updatedRestartDetail": "\u2705 \u66F4\u65B0\u5B8C\u4E86 \u2014 dsh web \u3092\u518D\u8D77\u52D5\u3059\u308B\u3068\u53CD\u6620\u3055\u308C\u307E\u3059",
+  "updateFailed": "\u274C \u5931\u6557\uFF1A{err}\uFF08\u624B\u52D5\u66F4\u65B0\uFF1Adsh plugin --profile web update dsh-pocket --latest -w\uFF09",
+  "versionRange": "\u73FE\u5728 v{cur} \u2192 \u6700\u65B0 v{latest}",
+  "wanAccess": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9",
+  "pinLabel": "\u30A2\u30AF\u30BB\u30B9 PIN",
+  "modeLabel": "\u30A2\u30C9\u30EC\u30B9\u30E2\u30FC\u30C9",
+  "advAddress": "\u8A73\u7D30\u8A2D\u5B9A \xB7 \u30A2\u30C9\u30EC\u30B9\u3092\u624B\u52D5\u3067\u9078\u629E",
+  "wanOffHint": "\u6709\u52B9\u306B\u3059\u308B\u3068\u3069\u306E\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u304B\u3089\u3067\u3082\u30A2\u30AF\u30BB\u30B9\u3067\u304D\u307E\u3059\uFF08\u6709\u52B9\u5316\u306E\u305F\u3073\u306B\u514D\u8CAC\u4E8B\u9805\u306E\u78BA\u8A8D\u304C\u5FC5\u8981\u3067\u3059\uFF09",
+  "resetFactory": "\u{1F9F9} \u5DE5\u5834\u51FA\u8377\u6642\u306E\u8A2D\u5B9A\u306B\u623B\u3059",
+  "resetGo": "\u30EA\u30BB\u30C3\u30C8",
+  "resetIntro": "\u8A2D\u5B9A\u3067\u554F\u984C\u304C\u8D77\u304D\u305F\u3068\u304D\u306E\u7DCA\u6025\u7528\uFF1A\u3053\u306E\u30DE\u30B7\u30F3\u306E\u8A2D\u5B9A\u3092\u6D88\u53BB\u3057\u3001\u30E9\u30F3\u30C0\u30E0\u306A PIN \u3092\u518D\u8A2D\u5B9A\u3057\u307E\u3059\uFF08DSH \u306E\u30BB\u30C3\u30B7\u30E7\u30F3\u3001\u30E2\u30C7\u30EB\u3001\u30D7\u30E9\u30B0\u30A4\u30F3\u8A2D\u5B9A\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09",
+  "resetTitle": "\u26A0\uFE0F \u5DE5\u5834\u51FA\u8377\u6642\u306E\u8A2D\u5B9A\u306B\u623B\u3057\u307E\u3059\u304B\uFF1F",
+  "resetBody": "\u6B21\u3092\u6D88\u53BB\u3057\u3001\u521D\u671F\u72B6\u614B\u306B\u623B\u3057\u307E\u3059\uFF1A\n\u2460 \u30B9\u30A4\u30C3\u30C1\u985E\uFF1ALAN \u30A2\u30AF\u30BB\u30B9\uFF1D\u30AA\u30F3\u3001\u30A2\u30AF\u30BB\u30B9 PIN\uFF1D\u30AA\u30F3\u3001\u30E2\u30D0\u30A4\u30EB\u53F3\u30B5\u30A4\u30C9\u30D0\u30FC\uFF1D\u30AA\u30F3\u3001LAN \u30A2\u30C9\u30EC\u30B9\uFF1D\u81EA\u52D5\n\u2461 \u30D1\u30D6\u30EA\u30C3\u30AF\uFF1A\u30E9\u30F3\u30C0\u30E0 URL \u30E2\u30FC\u30C9\u306B\u623B\u3057\u3001Tunnel Token \u3068\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\u3092\u6D88\u53BB\u3057\u3001\u5B9F\u884C\u4E2D\u306E\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u505C\u6B62\n\u2462 PIN\uFF1A\u30D1\u30D6\u30EA\u30C3\u30AF\u7528\u3068 LAN \u7528\u306E\u4E21\u65B9\u3092\u65B0\u3057\u3044\u30E9\u30F3\u30C0\u30E0\u306A 8 \u6587\u5B57\u306E PIN \u306B\u5909\u66F4\uFF08\u53E4\u3044 PIN \u306F\u5373\u5EA7\u306B\u7121\u52B9\u306B\u306A\u308A\u3001\u30B9\u30DE\u30DB\u3067\u518D\u5165\u529B\u304C\u5FC5\u8981\u3067\u3059\uFF09\n\nDSH \u306E\u30BB\u30C3\u30B7\u30E7\u30F3\u3001\u30E2\u30C7\u30EB\u3001\u30D7\u30E9\u30B0\u30A4\u30F3\u8A2D\u5B9A\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\u3002\u3053\u306E\u64CD\u4F5C\u306F\u53D6\u308A\u6D88\u305B\u307E\u305B\u3093\u3002",
+  "resetConfirm": "\u30EA\u30BB\u30C3\u30C8\u3059\u308B",
+  "resetDone": "\u2705 \u5DE5\u5834\u51FA\u8377\u6642\u306E\u8A2D\u5B9A\u306B\u623B\u3057\u307E\u3057\u305F\uFF1A\u8A2D\u5B9A\u3092\u6D88\u53BB\u3057\u3001PIN \u3092\u518D\u8A2D\u5B9A\u3057\u307E\u3057\u305F\uFF08\u30B9\u30DE\u30DB\u3067 PIN \u3092\u518D\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\uFF09",
+  "resetFailed": "\u274C \u30EA\u30BB\u30C3\u30C8\u306B\u5931\u6557\u3057\u307E\u3057\u305F \u2014 \u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044",
+  "lanTitle": "\u{1F4F6} LAN\uFF08\u540C\u3058 Wi-Fi\uFF09",
+  "lanHint": "\u30B9\u30DE\u30DB\u3092\u540C\u3058 Wi-Fi \u306B\u63A5\u7D9A\u3057\u3066 QR \u30B3\u30FC\u30C9\u3092\u8AAD\u307F\u53D6\u3063\u3066\u304F\u3060\u3055\u3044",
+  "qrFailed": "QR \u30B3\u30FC\u30C9\u306E\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A\u591A\u304F\u306F qrcode \u4F9D\u5B58\u306E\u4E0D\u8DB3\u3067\u3059\u3002dsh plugin add \u3067\u5C0E\u5165\u3059\u308B\u304B\u3001\u30D7\u30E9\u30B0\u30A4\u30F3\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\u3067 npm install --omit=dev \u3092\u5B9F\u884C\u3057\u3066\u518D\u8D77\u52D5\u3057\u3066\u304F\u3060\u3055\u3044",
+  "lanAccess": "LAN \u30A2\u30AF\u30BB\u30B9",
+  "lanDisabledHint": "\u{1F512} LAN \u30A2\u30AF\u30BB\u30B9\u306F\u30AA\u30D5\u3067\u3059\uFF1A\u30B9\u30DE\u30DB\u306E QR \u30B3\u30FC\u30C9\uFF0F\u30EA\u30F3\u30AF\u306F\u4F7F\u3048\u307E\u305B\u3093\uFF08\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\uFF09\u3002\u300C\u30AA\u30F3\u300D\u3092\u62BC\u3059\u3068\u5FA9\u65E7\u3057\u307E\u3059\u3002",
+  "lanToggleTitleOff": "LAN \u30A2\u30AF\u30BB\u30B9\u3092\u30AA\u30D5\u306B\u3057\u307E\u3059\u304B",
+  "lanToggleBodyOff": "\u30AA\u30D5\u306B\u3059\u308B\u3068\u3001\u540C\u3058 Wi-Fi \u306E\u30B9\u30DE\u30DB\u304B\u3089 QR \u30B3\u30FC\u30C9\u3067\u30A2\u30AF\u30BB\u30B9\u3067\u304D\u306A\u304F\u306A\u308A\u307E\u3059\uFF08LAN \u306E QR \u30B3\u30FC\u30C9\uFF0F\u30EA\u30F3\u30AF\u306F\u5373\u5EA7\u306B\u7121\u52B9\u306B\u306A\u308A\u307E\u3059\uFF09\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u306B\u306F\u5F71\u97FF\u3057\u307E\u305B\u3093\u3002\u30AA\u30D5\u306B\u3057\u307E\u3059\u304B\uFF1F",
+  "lanToggleTitleOn": "LAN \u30A2\u30AF\u30BB\u30B9\u3092\u30AA\u30F3\u306B\u3057\u307E\u3059\u304B",
+  "lanToggleBodyOn": "\u30AA\u30F3\u306B\u3059\u308B\u3068\u3001\u540C\u3058 Wi-Fi \u306E\u30B9\u30DE\u30DB\u304C QR \u30B3\u30FC\u30C9\u3067\u30A2\u30AF\u30BB\u30B9\u3067\u304D\u308B\u3088\u3046\u306B\u306A\u308A\u307E\u3059\uFF08\u6A19\u6E96\u3067\u306F LAN \u7528 PIN \u304C\u5FC5\u8981\u3067\u3059\uFF09\u3002\u30AA\u30F3\u306B\u3057\u307E\u3059\u304B\uFF1F",
+  "confirm": "OK",
+  "lanAddress": "LAN \u30A2\u30C9\u30EC\u30B9",
+  "lanAddressAuto": "\u81EA\u52D5\uFF08\u63A8\u5968\uFF09",
+  "lanPin": "LAN \u30A2\u30AF\u30BB\u30B9 PIN",
+  "on": "\u30AA\u30F3",
+  "off": "\u30AA\u30D5",
+  "lanPinValue": "\u{1F510} \u30A2\u30AF\u30BB\u30B9 PIN\uFF1A{pin}\uFF08\u30B9\u30DE\u30DB\u3092\u958B\u304F\u3068\u304D\u306B\u5FC5\u8981\u3067\u3059\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u7528 PIN \u3068\u306F\u5225\u3067\u3059\uFF09",
+  "lanPinCustomValue": "\u{1F510} \u30A2\u30AF\u30BB\u30B9 PIN\uFF1A{pin}\uFF08\u30AB\u30B9\u30BF\u30E0\u3002\u30B9\u30DE\u30DB\u3092\u958B\u304F\u3068\u304D\u306B\u5FC5\u8981\u3067\u3059\uFF09",
+  "refresh": "\u66F4\u65B0",
+  "customize": "\u30AB\u30B9\u30BF\u30DE\u30A4\u30BA",
+  "customizing": "\u65B0\u3057\u3044 PIN\uFF088\u301C64 \u6587\u5B57\u3001\u82F1\u5B57\u307E\u305F\u306F\u6570\u5B57\uFF09\uFF1A",
+  "save": "\u4FDD\u5B58",
+  "cancel": "\u30AD\u30E3\u30F3\u30BB\u30EB",
+  "pinInvalid": "PIN \u306F 8\u301C64 \u6587\u5B57\u306E\u82F1\u5B57\u307E\u305F\u306F\u6570\u5B57\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+  "pinCustomHint": "\u30AB\u30B9\u30BF\u30DE\u30A4\u30BA\u3059\u308B\u3068\u3001\u30D1\u30D6\u30EA\u30C3\u30AF\u958B\u59CB\u6642\u306B\u81EA\u52D5\u3067\u65B0\u3057\u3044 PIN \u306B\u306F\u306A\u308A\u307E\u305B\u3093",
+  "pinShow": "\u8868\u793A",
+  "pinHide": "\u975E\u8868\u793A",
+  "lanPinOff": "\u{1F513} PIN \u306F\u30AA\u30D5\u3067\u3059\uFF1AQR \u30B3\u30FC\u30C9\u3060\u3051\u3067\u63A5\u7D9A\u3067\u304D\u3001PIN \u306F\u4E0D\u8981\u3067\u3059\uFF08\u540C\u3058 LAN \u5185\u306E\u30C7\u30D0\u30A4\u30B9\u306E\u307F\u30A2\u30AF\u30BB\u30B9\u53EF\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u3067\u306F\u5F15\u304D\u7D9A\u304D PIN \u304C\u5FC5\u8981\u3067\u3059\uFF09",
+  "lanStarting": "\u30D7\u30ED\u30AD\u30B7\u6E96\u5099\u4E2D\u2026",
+  "mobileRightbar": "\u30E2\u30D0\u30A4\u30EB\u53F3\u30B5\u30A4\u30C9\u30D0\u30FC",
+  "mobileRightbarHint": "\u6A19\u6E96\u306E\u53F3\u30B5\u30A4\u30C9\u30D0\u30FC\u306E\u5165\u53E3\u3092\u8868\u793A\u3057\u307E\u3059\u3002\u901A\u5E38\u306E\u30B9\u30DE\u30DB\u3067\u306F\u5FC5\u8981\u306B\u5FDC\u3058\u3066\u30AA\u30D5\u306B\u3067\u304D\u3001\u6298\u308A\u305F\u305F\u307F\u753B\u9762\u3092\u5E83\u3052\u3066\u4F7F\u3046\u5834\u5408\u306F\u30AA\u30F3\u304C\u4FBF\u5229\u3067\u3059",
+  "wanTitle": "\u{1F310} \u30D1\u30D6\u30EA\u30C3\u30AF\uFF08\u5916\u51FA\u5148\u304B\u3089\uFF09",
+  "wanHint": "\u3069\u306E\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u304B\u3089\u3067\u3082 QR \u30B3\u30FC\u30C9\u3067\u4F7F\u3048\u307E\u3059\uFF08URL \u306F\u518D\u8D77\u52D5\u306E\u305F\u3073\u306B\u81EA\u52D5\u3067\u65B0\u3057\u304F\u306A\u308A\u307E\u3059\uFF09",
+  "wanPin": "\u{1F510} \u30A2\u30AF\u30BB\u30B9 PIN\uFF1A{pin}\uFF08\u30D1\u30D6\u30EA\u30C3\u30AF\u3092\u6709\u52B9\u5316\u3059\u308B\u305F\u3073\u306B\u65B0\u3057\u304F\u306A\u308A\u307E\u3059\u3002\u30B9\u30DE\u30DB\u3067\u30EA\u30F3\u30AF\u3092\u958B\u304F\u3068\u304D\u306B\u5FC5\u8981\u3067\u3059\uFF09",
+  "wanPinCustom": "\u{1F510} \u30A2\u30AF\u30BB\u30B9 PIN\uFF1A{pin}\uFF08\u30AB\u30B9\u30BF\u30E0\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u958B\u59CB\u6642\u306B\u81EA\u52D5\u3067\u306F\u65B0\u3057\u304F\u306A\u308A\u307E\u305B\u3093\uFF09",
+  "wanEphemeralWarn": "\u26A0\uFE0F \u30D1\u30D6\u30EA\u30C3\u30AF\u30EA\u30F3\u30AF\u306F\u4ECA\u56DE\u306E\u6709\u52B9\u5316\u671F\u9593\u4E2D\u306E\u307F\u6709\u52B9\u3067\u3059\uFF1A\u30AA\u30D5\u306B\u3059\u308B\u304B\u518D\u8D77\u52D5\u3059\u308B\u3068\u7121\u52B9\u306B\u306A\u308A\u3001\u4ED6\u4EBA\u304C\u5225\u306E\u30B5\u30A4\u30C8\u306B\u518D\u5229\u7528\u3059\u308B\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002\u30D6\u30C3\u30AF\u30DE\u30FC\u30AF\u305B\u305A\u3001\u6BCE\u56DE\u3053\u306E\u30DA\u30FC\u30B8\u3067\u300C\u73FE\u5728\u306E\u300DQR \u30B3\u30FC\u30C9\u3092\u8AAD\u307F\u53D6\u3063\u3066\u304F\u3060\u3055\u3044\u3002\u5909\u308F\u3089\u306A\u3044\u56FA\u5B9A\u30A2\u30C9\u30EC\u30B9\u304C\u5FC5\u8981\u306A\u5834\u5408\u306F\u3001\u4E0B\u306E\u300C\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\u300D\u3092\u4F7F\u3063\u3066\u304F\u3060\u3055\u3044\u3002",
+  "stopTunnel": "\u30D1\u30D6\u30EA\u30C3\u30AF\u3092\u505C\u6B62",
+  "enable": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u6709\u52B9\u5316",
+  "opening": "\u6709\u52B9\u5316\u4E2D\u2026",
+  "reconnecting": "\u518D\u63A5\u7D9A\u4E2D\u2026",
+  "stopReconnect": "\u518D\u63A5\u7D9A\u3092\u505C\u6B62",
+  "tunnelMode": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30E2\u30FC\u30C9\uFF1A",
+  "modeQuick": "\u30E9\u30F3\u30C0\u30E0\u30C9\u30E1\u30A4\u30F3\uFF08\u30C7\u30D5\u30A9\u30EB\u30C8\uFF09",
+  "modeNamed": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3",
+  "modeFrp": "\u81EA\u524D frp\uFF08TCP \u8EE2\u9001\uFF09",
+  "frpSummary": "\u81EA\u524D frp\uFF1A{server}:{port} \xB7 {protocol} \xB7 Token {token}",
+  "frpServerLabel": "\u30B5\u30FC\u30D0\u30FC\uFF08frps \u30A2\u30C9\u30EC\u30B9\uFF09\uFF1A",
+  "frpServerPortLabel": "frps \u30DD\u30FC\u30C8\uFF1A",
+  "frpRemotePortLabel": "\u30EA\u30E2\u30FC\u30C8\u30DD\u30FC\u30C8\uFF1A",
+  "frpTokenLabel": "frp Token\uFF08\u7A7A\u6B04 \uFF1D \u5909\u66F4\u3057\u307E\u305B\u3093\uFF09\uFF1A",
+  "frpTlsLabel": "TLS\uFF08frpc\u2192frps \u533A\u9593\u3092\u6697\u53F7\u5316\uFF09",
+  "frpProtocolLabel": "\u8EE2\u9001\u30D7\u30ED\u30C8\u30B3\u30EB\uFF1A",
+  "frpProto_tcp": "TCP\uFF08\u30C7\u30D5\u30A9\u30EB\u30C8\u3001\u56DE\u7DDA\u304C\u826F\u3051\u308C\u3070\u6700\u901F\uFF09",
+  "frpProto_quic": "QUIC\uFF08\u30ED\u30B9\u306B\u5F37\u304F\u3001\u30D4\u30FC\u30AF\u6642\u9593\u5E2F\u3067\u3082\u5B89\u5B9A\uFF09",
+  "frpProtocolHint": "QUIC/KCP \u306F\u72EC\u81EA\u306B\u6697\u53F7\u5316\u3057\u307E\u3059\uFF08TLS \u306E\u4F75\u7528\u306F\u4E0D\u8981\uFF09\u3002\u30B5\u30FC\u30D0\u30FC\u5074\u306E frps \u3067\u3082 quicBindPort \u3092\u6709\u52B9\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  "frpHow": "\u30D7\u30E9\u30B0\u30A4\u30F3\u304C frpc \u3092\u81EA\u52D5\u3067\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u3057\u3001\u81EA\u524D\u306E frps \u306B\u63A5\u7D9A\u3057\u3066 TCP \u3067\u672C\u6A5F\u306E\u30D7\u30ED\u30AD\u30B7\u30DD\u30FC\u30C8\u3092\u8EE2\u9001\u3057\u307E\u3059\u3002\u30A2\u30C9\u30EC\u30B9\u306F http://<\u30B5\u30FC\u30D0\u30FC>:<\u30EA\u30E2\u30FC\u30C8\u30DD\u30FC\u30C8> \u3067\u56FA\u5B9A\u3002\u30B5\u30FC\u30D0\u30FC\u306E\u30D5\u30A1\u30A4\u30A2\u30A6\u30A9\u30FC\u30EB\uFF0F\u30BB\u30AD\u30E5\u30EA\u30C6\u30A3\u30B0\u30EB\u30FC\u30D7\u3067\u305D\u306E\u30DD\u30FC\u30C8\u3092\u958B\u653E\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u30D6\u30E9\u30A6\u30B6\u2192frps \u306F\u5E73\u6587 HTTP \u306A\u306E\u3067\u3001\u5FC5\u305A\u5F37\u529B\u306A\u30AB\u30B9\u30BF\u30E0 PIN \u3092\u8A2D\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  "frpSecurity": "\u81EA\u524D frp \u306E\u30A2\u30C9\u30EC\u30B9\u306F\u56FA\u5B9A\u3067\u5E38\u6642\u7A3C\u50CD\u306E\u305F\u3081\u3001\u30E9\u30F3\u30C0\u30E0\u306A URL \u3088\u308A\u30B9\u30AD\u30E3\u30F3\u3055\u308C\u3084\u3059\u3044\u3067\u3059\u3002\u5F37\u529B\u306A\u30AB\u30B9\u30BF\u30E0 PIN \u3092\u8A2D\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\uFF08\u3053\u306E\u30E2\u30FC\u30C9\u3067\u306F\u30D1\u30D6\u30EA\u30C3\u30AF PIN \u306F\u518D\u8D77\u52D5\u6642\u306B\u30ED\u30FC\u30C6\u30FC\u30B7\u30E7\u30F3\u3055\u308C\u307E\u305B\u3093\uFF09\u3002",
+  "frpNeedCfg": "\u5148\u306B frps \u30A2\u30C9\u30EC\u30B9\u3068\u30EA\u30E2\u30FC\u30C8\u30DD\u30FC\u30C8\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+  "frpRunningHint": "\u81EA\u524D frp\uFF08TCP \u8EE2\u9001\uFF09\u2014\u2014 \u30A2\u30C9\u30EC\u30B9\u306F\u518D\u8D77\u52D5\u3057\u3066\u3082\u5909\u308F\u308A\u307E\u305B\u3093",
+  "frpTakeEffect": "frp \u306E\u8A2D\u5B9A\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F \u2014 \u53CD\u6620\u3059\u308B\u306B\u306F\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u4E00\u5EA6\u30AA\u30D5\u306B\u3057\u3066\u304B\u3089\u518D\u5EA6\u30AA\u30F3\u306B\u3057\u3066\u304F\u3060\u3055\u3044",
+  "namedSummary": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\uFF1A{host} \xB7 Token {token}",
+  "namedTokenSet": "\u8A2D\u5B9A\u6E08\u307F",
+  "namedTokenMissing": "\u672A\u8A2D\u5B9A",
+  "namedEdit": "\u5909\u66F4",
+  "namedHostnameLabel": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\uFF1A",
+  "namedTokenLabel": "Tunnel Token\uFF08\u7A7A\u6B04 \uFF1D \u5909\u66F4\u3057\u307E\u305B\u3093\uFF09\uFF1A",
+  "namedHow": "Cloudflare Zero Trust \u2192 Networks \u2192 Tunnels \u3067\u30C8\u30F3\u30CD\u30EB\u3092\u4F5C\u6210\u3057\u3001Token \u3092\u30B3\u30D4\u30FC\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u30C9\u30E1\u30A4\u30F3\u306E Service \u306B\u306F http://127.0.0.1:3081\uFF08\u30D7\u30ED\u30AD\u30B7\u306E\u30DD\u30FC\u30C8\uFF09\u3092\u6307\u5B9A\u3057\u307E\u3059\u3002\u30A2\u30C9\u30EC\u30B9\u306F\u56FA\u5B9A\u3055\u308C\u3001\u518D\u8D77\u52D5\u3057\u3066\u3082\u5909\u308F\u308A\u307E\u305B\u3093\u3002",
+  "namedSecurity": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\u306F\u9577\u671F\u9593\u30A4\u30F3\u30BF\u30FC\u30CD\u30C3\u30C8\u306B\u516C\u958B\u3055\u308C\u30B9\u30AD\u30E3\u30F3\u3055\u308C\u3084\u3059\u3044\u305F\u3081\u3001\u5F37\u529B\u306A\u30AB\u30B9\u30BF\u30E0 PIN \u306E\u4F75\u7528\u3092\u304A\u3059\u3059\u3081\u3057\u307E\u3059\uFF08\u3053\u306E\u30E2\u30FC\u30C9\u3067\u306F\u30D1\u30D6\u30EA\u30C3\u30AF PIN \u306F\u6A19\u6E96\u3067\u518D\u8D77\u52D5\u6642\u306B\u30ED\u30FC\u30C6\u30FC\u30B7\u30E7\u30F3\u3055\u308C\u307E\u305B\u3093\uFF09\u3002",
+  "namedNeedCfg": "\u5148\u306B\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\u3068 Tunnel Token \u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044",
+  "namedRunningHint": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\uFF08Cloudflare \u306E\u540D\u524D\u4ED8\u304D\u30C8\u30F3\u30CD\u30EB\uFF09\u2014\u2014 \u30A2\u30C9\u30EC\u30B9\u306F\u518D\u8D77\u52D5\u3057\u3066\u3082\u5909\u308F\u308A\u307E\u305B\u3093",
+  "namedTakeEffect": "\u56FA\u5B9A\u30C9\u30E1\u30A4\u30F3\u306E\u8A2D\u5B9A\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F \u2014 \u53CD\u6620\u3059\u308B\u306B\u306F\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u4E00\u5EA6\u30AA\u30D5\u306B\u3057\u3066\u304B\u3089\u518D\u5EA6\u30AA\u30F3\u306B\u3057\u3066\u304F\u3060\u3055\u3044",
+  "disclaimerTitle": "\u26A0\uFE0F \u30BB\u30AD\u30E5\u30EA\u30C6\u30A3\u514D\u8CAC\u4E8B\u9805",
+  "disclaimerBody": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u6709\u52B9\u5316\u3059\u308B \uFF1D \u3053\u306E\u30DE\u30B7\u30F3\u306E DSH\uFF08\u30B3\u30FC\u30C9\u3092\u5B9F\u884C\u3067\u304D\u307E\u3059\uFF09\u3092\u30A4\u30F3\u30BF\u30FC\u30CD\u30C3\u30C8\u306B\u516C\u958B\u3059\u308B\u3053\u3068\u3067\u3059\u3002\u30D1\u30D6\u30EA\u30C3\u30AF\u30EA\u30F3\u30AF\u3068 PIN \u3092\u624B\u306B\u5165\u308C\u305F\u4EBA\u306F\u8AB0\u3067\u3082\u3001\u3042\u306A\u305F\u306E\u30B3\u30F3\u30D4\u30E5\u30FC\u30BF\u306B\u30A2\u30AF\u30BB\u30B9\u3057\u3001\u64CD\u4F5C\u3067\u304D\u3066\u3057\u307E\u3044\u307E\u3059\u3002\u6B21\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\uFF1A\u2460 \u5F37\u529B\u306A\u30AB\u30B9\u30BF\u30E0 PIN \u3092\u4F7F\u3046\u304B\u3001\u81EA\u52D5\u751F\u6210\u3055\u308C\u305F PIN \u3092\u5B89\u5168\u306B\u4FDD\u7BA1\u3059\u308B\u3002\u2461 \u4F7F\u3044\u7D42\u308F\u3063\u305F\u3089\u3059\u3050\u306B\u300C\u30D1\u30D6\u30EA\u30C3\u30AF\u3092\u505C\u6B62\u300D\u3059\u308B\u3002\u2462 \u4F1A\u793E\uFF0F\u6A5F\u5BC6\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u3067\u306F\u4E8B\u524D\u306B\u30B3\u30F3\u30D7\u30E9\u30A4\u30A2\u30F3\u30B9\u3092\u78BA\u8A8D\u3059\u308B\u3002",
+  "disclaimerAgree": "\u5185\u5BB9\u3092\u7406\u89E3\u3057\u3001\u6709\u52B9\u5316\u306B\u540C\u610F\u3057\u307E\u3059",
+  "disclaimerHint": "\u30D1\u30D6\u30EA\u30C3\u30AF\u30A2\u30AF\u30BB\u30B9\u3092\u6709\u52B9\u306B\u3059\u308B\u524D\u306B\u300C\u5185\u5BB9\u3092\u7406\u89E3\u3057\u3001\u6709\u52B9\u5316\u306B\u540C\u610F\u3057\u307E\u3059\u300D\u306B\u30C1\u30A7\u30C3\u30AF\u3057\u3066\u304F\u3060\u3055\u3044",
+  "downloading": "\u23F3 cloudflared \u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u4E2D\uFF08\u521D\u56DE\u306F\u7D04 20\u301C50MB\u3001\u901A\u5E38 1\u301C2 \u5206\u30022 \u56DE\u76EE\u4EE5\u964D\u306F\u3059\u3050\u958B\u304D\u307E\u3059\uFF09\xB7 {s} \u79D2\u7D4C\u904E",
+  "connecting": "\u23F3 Cloudflare \u30A8\u30C3\u30B8\u306B\u63A5\u7D9A\u4E2D\uFF08\u901A\u5E38 5\u301C30 \u79D2\uFF09\xB7 {s} \u79D2\u7D4C\u904E{suffix}",
+  "slowHint": " \u2014 \u5C11\u3057\u6642\u9593\u304C\u304B\u304B\u3063\u3066\u3044\u307E\u3059\u304B\uFF1F\u30D7\u30ED\u30AD\u30B7\uFF0FVPN\uFF08Clash TUN \u306A\u3069\uFF09\u304C\u6709\u52B9\u306B\u306A\u3063\u3066\u3044\u306A\u3044\u304B\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044",
+  "error": "\u274C \u6709\u52B9\u5316\u306B\u5931\u6557\u3057\u307E\u3057\u305F\uFF1A{detail}\uFF08\u518D\u8A66\u884C\u3067\u304D\u307E\u3059\u3002\u30D7\u30ED\u30AD\u30B7\uFF0FVPN \u304C\u539F\u56E0\u306E\u5834\u5408\u306F README \u306E\u30C8\u30E9\u30D6\u30EB\u30B7\u30E5\u30FC\u30C6\u30A3\u30F3\u30B0\u3092\u53C2\u7167\uFF09",
+  "unknownError": "\u4E0D\u660E\u306A\u30A8\u30E9\u30FC",
+  "feedback": "\u304A\u56F0\u308A\u3067\u3059\u304B\uFF1FGitHub Issues \u3078\u30D5\u30A3\u30FC\u30C9\u30D0\u30C3\u30AF\u3092\u304A\u9858\u3044\u3057\u307E\u3059 \u{1F64F}"
+};
 
 // client/index.jsx
 var name = "dsh-pocket";
@@ -2121,6 +2316,23 @@ function fmt(t, key, vars) {
     }
   }
   return s;
+}
+function PinMask(props) {
+  const [shown, setShown] = (0, import_react2.useState)(false);
+  const value = props && props.value != null ? String(props.value) : "";
+  const t = props && typeof props.t === "function" ? props.t : () => "";
+  const dots = "\u2022".repeat(10);
+  return (0, import_react2.createElement)(
+    "span",
+    { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
+    (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, shown ? value : dots),
+    (0, import_react2.createElement)("button", {
+      type: "button",
+      style: { font: "inherit", fontSize: 12, padding: "2px 10px", height: 26, borderRadius: 999, border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", background: "transparent", color: "var(--dsw-alias-label-secondary,#6b7280)", cursor: "pointer" },
+      onClick: () => setShown((v) => !v),
+      title: shown ? t("pinHide") : t("pinShow")
+    }, shown ? t("pinHide") : t("pinShow"))
+  );
 }
 var styles = {
   card: { background: "var(--dsw-alias-bg-layer-1,#fff)", border: "1px solid var(--dsw-alias-border-l2,#e5e7eb)", borderRadius: 12, padding: "16px 20px", maxWidth: 480 },
@@ -2253,11 +2465,11 @@ function PocketSettingsTab({ rpcCall, t }) {
   const doStartTunnel = async () => {
     const cfg = status?.tunnelConfig;
     if (cfg?.mode === "named" && (!cfg.hostname || !cfg.tokenSet)) {
-      setError(t("namedNeedCfg"));
+      setTunnelState({ phase: "error", detail: t("namedNeedCfg"), startedAt: null });
       return;
     }
     if (cfg?.mode === "frp" && (!cfg.frp?.server || !cfg.frp?.remotePort)) {
-      setError(t("frpNeedCfg"));
+      setTunnelState({ phase: "error", detail: t("frpNeedCfg"), startedAt: null });
       return;
     }
     setBusy(true);
@@ -2266,7 +2478,7 @@ function PocketSettingsTab({ rpcCall, t }) {
     try {
       setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
-      setError(err.message);
+      setTunnelState({ phase: "error", detail: err?.message ?? String(err), startedAt: null });
     } finally {
       setBusy(false);
     }
@@ -2431,6 +2643,7 @@ function PocketSettingsTab({ rpcCall, t }) {
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? "idle";
   const tunnelStarting = ["downloading", "starting", "registering"].includes(tunnelPhase);
+  const tunnelRestarting = tunnelPhase === "restarting";
   const tunnelStateDetail = tunnelState?.detail ?? "";
   const tunnelStateStarted = tunnelState?.startedAt ?? null;
   const tunnelModeView = status?.tunnelConfig ?? { mode: "quick", hostname: "", tokenSet: false, frp: null };
@@ -2468,13 +2681,17 @@ function PocketSettingsTab({ rpcCall, t }) {
   const Switch = (on, onClick) => (0, import_react2.createElement)("button", {
     role: "switch",
     "aria-checked": !!on,
-    style: { flexShrink: 0, width: 40, height: 22, borderRadius: 11, border: "none", padding: 0, position: "relative", cursor: "pointer", font: "inherit", background: on ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-border-l2,#d1d5db)" },
+    style: { boxSizing: "border-box", flexShrink: 0, width: 36, height: 20, padding: 2, border: 0, borderRadius: 999, cornerShape: "round", position: "relative", cursor: "pointer", font: "inherit", background: on ? "var(--dsw-alias-brand-primary, #e6e8eb)" : "var(--dsw-alias-border-l3, #3a3f46)", transition: "background 120ms ease" },
     onClick
-  }, (0, import_react2.createElement)("span", { style: { position: "absolute", top: 2, left: on ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } }));
-  const qrArea = (src, url, hint) => (0, import_react2.createElement)(
+  }, (0, import_react2.createElement)("span", { style: { display: "block", width: 16, height: 16, borderRadius: "50%", cornerShape: "round", background: on ? "var(--dsw-alias-label-primary-foreground, #0f1115)" : "var(--dsw-alias-switch-thumb, #8b9198)", transition: "transform 120ms ease", transform: on ? "translateX(16px)" : "translateX(0)" } }));
+  const qrArea = (src, url, hint, missingText) => (0, import_react2.createElement)(
     "div",
     { style: { background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 10, padding: "10px 12px", textAlign: "center", margin: "10px 0" } },
-    (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }),
+    src ? (0, import_react2.createElement)("img", { src, alt: "QR", style: styles.qr }) : url ? (0, import_react2.createElement)("div", {
+      role: "alert",
+      "data-pocket-qr-error": "1",
+      style: { ...styles.qr, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", padding: 14, fontSize: 12, lineHeight: 1.6, textAlign: "left", color: "var(--dsw-alias-label-primary,inherit)" }
+    }, missingText) : (0, import_react2.createElement)("div", { style: styles.qr, "data-pocket-qr-pending": "1" }),
     (0, import_react2.createElement)("div", { style: styles.code }, url),
     (0, import_react2.createElement)("div", { style: styles.muted }, hint)
   );
@@ -2561,7 +2778,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       status?.lanEnabled === false ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("lanDisabledHint")) : lanUrl ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.lanQr, lanUrl, t("lanHint")),
+        qrArea(status.lanQr, lanUrl, t("lanHint"), t("qrFailed")),
         // 访问密码行：开关 + 值（关闭时提示直连）
         row(
           t("lanPin"),
@@ -2569,7 +2786,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           status?.lanAuthEnabled === false ? (0, import_react2.createElement)("div", { style: { ...styles.muted, marginTop: 6 } }, t("lanPinOff")) : customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
             "div",
             { style: { marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-            (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status.lanToken),
+            (0, import_react2.createElement)(PinMask, { value: status.lanToken, t }),
             (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: refreshLanPin }, t("refresh")),
             customBtn("lan"),
             status?.lanPinCustom ? (0, import_react2.createElement)("span", { style: { fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
@@ -2613,9 +2830,17 @@ function PocketSettingsTab({ rpcCall, t }) {
         "div",
         { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
         (0, import_react2.createElement)("span", { style: { fontWeight: 600, fontSize: 13 } }, t("wanAccess")),
-        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : (0, import_react2.createElement)("button", { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting }, busy || tunnelStarting ? t("opening") : t("enable"))
+        tunnelUrl ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopTunnel")) : tunnelRestarting ? (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, color: "var(--dsw-alias-state-error-primary,#dc2626)" }, onClick: stopTunnel }, t("stopReconnect")) : (0, import_react2.createElement)(
+          "button",
+          { style: { ...styles.primary, height: 28, padding: "0 14px", fontSize: 12 }, onClick: startTunnel, disabled: busy || tunnelStarting },
+          busy || tunnelStarting ? t("opening") : t("enable")
+        )
       ),
-      tunnelStarting ? (0, import_react2.createElement)(
+      tunnelRestarting ? (0, import_react2.createElement)(
+        "div",
+        { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)" } },
+        errText(tunnelStateDetail) || t("reconnecting")
+      ) : tunnelStarting ? (0, import_react2.createElement)(
         "div",
         { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } },
         tunnelPhase === "downloading" ? fmt(t, "downloading", { s: elapsed(tunnelStateStarted) }) : fmt(t, "connecting", { s: elapsed(tunnelStateStarted), suffix: elapsed(tunnelStateStarted) > 30 ? t("slowHint") : "" })
@@ -2627,7 +2852,7 @@ function PocketSettingsTab({ rpcCall, t }) {
       tunnelUrl ? (0, import_react2.createElement)(
         "div",
         null,
-        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : frpMode ? t("frpRunningHint") : t("wanHint")),
+        qrArea(status.tunnelQr, tunnelUrl, namedMode ? t("namedRunningHint") : frpMode ? t("frpRunningHint") : t("wanHint"), t("qrFailed")),
         // 防钓鱼 / 别收藏（issue #82）：公网链接仅本次有效、勿收藏提示
         (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, lineHeight: 1.5, borderLeft: "4px solid var(--dsw-alias-state-warn-primary,#b45309)", background: "var(--dsw-alias-bg-layer-2,#f3f4f6)", borderRadius: 8, padding: "8px 10px" } }, t("wanEphemeralWarn")),
         // 地址模式行（随机/固定域名/自建 frp；后两者选中或编辑时高亮）
@@ -2805,7 +3030,7 @@ function PocketSettingsTab({ rpcCall, t }) {
           customPin?.which === "public" ? null : (0, import_react2.createElement)(
             "span",
             { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
-            (0, import_react2.createElement)("span", { style: { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 13, letterSpacing: 1 } }, status.accessToken),
+            (0, import_react2.createElement)(PinMask, { value: status.accessToken, t }),
             customBtn("public")
           ),
           (0, import_react2.createElement)(
@@ -2933,7 +3158,7 @@ function apply(ctx) {
   mobileApply(ctx);
   const rpcCall = (endpoint, payload, signal) => ctx.connection.rpc.call(POCKET_RPC_CHANNEL, endpoint, payload, signal);
   const translate = ctx.locale.bind(NS2);
-  ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2 }), "dsh-pocket: pocket locale dictionaries");
+  ctx.effect(() => ctx.locale.register(NS2, { zh: zh2, en: en2, ja: ja2 }), "dsh-pocket: pocket locale dictionaries");
   ctx.slots.inject(
     "settings.section",
     () => ctx.slots.register(
