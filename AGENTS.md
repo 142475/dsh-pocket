@@ -43,5 +43,6 @@ env -u no_proxy -u NO_PROXY git -c http.proxy=http://127.0.0.1:82 -c credential.
 推完 `git fetch` 补 tracking ref，验收只认 `ls-remote` 与 `rev-parse HEAD` 对拍。
 
 ## 登录态（免重输）
-- cookie 值 = `sha256(PIN : sessionKey)`，`sessionKey` 落盘在 `~/.dsh/dsh-pocket/session-key`（0600，`lib/index.js` 的 `persistentSessionKey()`）。**不要改回进程级随机值**，否则每次重启/升级手机都要重输 PIN。
-- 失效途径（都保留）：改/刷新 PIN、删 `session-key` 文件（= 登出所有设备）、清浏览器 cookie。测试 `test/keep-signed-in.test.js` 锁住这三条。
+- cookie 值 = `sha256(PIN : sessionKey)`，`sessionKey` 由 `lib/settings.mjs` 的 `cookieKey()` 提供，落盘在 `~/.dsh/dsh-pocket/cookie-key`（32+ 位 hex，0600）。**不要改回进程级随机值**，否则每次重启/升级手机都要重输 PIN；cookie `Max-Age` 是 400 天。
+- 失效途径（都保留）：改/刷新 PIN、删 `cookie-key`（= 登出所有设备）、清浏览器 cookie。测试 `test/keep-signed-in.test.js` 锁住这三条。
+- 历史坑：这个能力在 2026-11-16「上游 2.13.1 为准」的合并里**被上游实现冲掉过一次**（上游仍是进程级随机 sessionKey），症状就是「每次重启都要重输」，重打时按 `cookieKey()` 的写法恢复，别再用新的文件名。

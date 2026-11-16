@@ -688,7 +688,7 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   await new Promise((r) => up.close(r));
 });
 
-test('会话保持（issue #33）：登录 cookie 绑定进程 sessionKey，持久 30 天；重启后旧 cookie 失效需重新输入', async () => {
+test('会话保持（issue #33）：登录 cookie 绑定 key，持久 400 天；key 变了旧 cookie 才会失效', async () => {
   const http = await import('node:http');
   const { createHash } = await import('node:crypto');
   const TOKEN = '12345678';
@@ -717,12 +717,12 @@ test('会话保持（issue #33）：登录 cookie 绑定进程 sessionKey，持�
   });
   try {
     const raw = makeRaw(proxy.port);
-    // 1) 登录 → cookie 派生绑定 sessionKey，且带 Max-Age（持久 30 天）
+    // 1) 登录 → cookie 派生绑定 sessionKey，且带 Max-Age（持久 400 天）
     const r1 = await raw({ Host: 'abc.trycloudflare.com', 'Content-Type': 'application/x-www-form-urlencoded' }, 'POST', 'token=' + TOKEN, '/pocket-login');
     assert.equal(r1.status, 302, '登录成功');
     const sc = (r1.headers['set-cookie'] || []).join(';');
     assert.ok(sc.includes('dsh_pocket_token=' + cookieOf(TOKEN, SK1)), 'cookie 绑定 sessionKey 派生');
-    assert.ok(sc.includes('Max-Age=2592000'), '持久 cookie（30 天）');
+    assert.ok(sc.includes('Max-Age=34560000'), '持久 cookie（400 天，浏览器上限）');
     assert.ok(sc.includes('HttpOnly'), 'HttpOnly');
 
     // 2) 带派生 cookie → 放行
@@ -1460,7 +1460,7 @@ test('?token=<原始 PIN> 直达种 HttpOnly cookie，issue #35', async () => {
     const sc = Array.isArray(r1.setCookie) ? r1.setCookie.join(';') : String(r1.setCookie ?? '');
     assert.ok(sc.includes(`dsh_pocket_token=${hashed}`), `种 cookie 含哈希值（实得：${sc.slice(0, 200)}）`);
     assert.ok(sc.includes('HttpOnly'), 'HttpOnly 标记');
-    assert.ok(sc.includes('Max-Age=2592000'), '30 天持久');
+    assert.ok(sc.includes('Max-Age=34560000'), '400 天持久');
 
     // 2) 用刚种的 cookie 访问子资源：200（不再依赖 ?token=）
     const r2 = await new Promise((resolve, reject) => {
